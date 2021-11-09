@@ -15,11 +15,6 @@ void Cpu::initOpcodeTables() {
         [&] { return reg.get_lo(); }, [&](uint8_t val) { reg.set_lo(val); });
   };
 
-  using getter = std::function<uint8_t()>;
-  using getters = std::vector<getter>;
-  using setter = std::function<void(uint8_t)>;
-  using setters = std::vector<setter>;
-
   const auto [get_af, set_af, get_a, set_a, get_f, set_f] = get_set(af);
   const auto [get_bc, set_bc, get_b, set_b, get_c, set_c] = get_set(bc);
   const auto [get_de, set_de, get_d, set_d, get_e, set_e] = get_set(de);
@@ -29,7 +24,6 @@ void Cpu::initOpcodeTables() {
   const auto set_mem_hl = [this](uint8_t val) { /* TODO */ };
 
   // === 8-bit load instructions ===
-  const auto ld = [&](setter dst, getter src) { return [=] { dst(src()); }; };
 
   // All the opcodes with hi nybble 4, 5, 6, and 7, excluding $76 (HALT)
   auto src_8_bit =
@@ -94,10 +88,6 @@ void Cpu::initOpcodeTables() {
   opcodes[0xFA] = ld(set_a, get_mem_a16);
 
   // === 16-bit load instructions ===
-  using getter16 = std::function<uint16_t()>;
-  using getters16 = std::vector<getter16>;
-  using setter16 = std::function<void(uint16_t)>;
-  using setters16 = std::vector<setter16>;
   const auto ld16 = [&](setter16 dst, getter16 src) {
     return [=] { dst(src()); };
   };
@@ -114,18 +104,6 @@ void Cpu::initOpcodeTables() {
   opcodes[0x08] = ld16(set_mem_a16, [this] { return sp.get(); });
 
   // $C1, $D1, $E1, $F1, $C5, $D5, $E5, $F5
-  const auto push = [&](getter16 src) {
-    return [=] {
-      sp.set(sp.get() - 2);
-      // TODO: Write from src to (SP)
-    };
-  };
-  const auto pop = [&](setter16 dst) {
-    return [=] {
-      // TODO: Read from (SP) to dst
-      sp.set(sp.get() + 2);
-    };
-  };
   const auto push_regs = getters16{get_bc, get_de, get_hl, get_af};
   const auto pop_regs = setters16{set_bc, set_de, set_hl, set_af};
   for (int i = 0xC; i <= 0xF; i++) {
@@ -138,3 +116,21 @@ void Cpu::initOpcodeTables() {
   opcodes[0xF8] = ld16(set_hl, sp_plus_r8);
   opcodes[0xF9] = ld16([this](uint16_t val) { sp.set(val); }, get_hl);
 }
+
+Cpu::InstrFunc Cpu::ld(setter dst, getter src) {
+  return [=, this] { dst(src()); };
+}
+
+Cpu::InstrFunc Cpu::push(getter16 src) {
+  return [=, this] {
+    sp.set(sp.get() - 2);
+    // TODO: Write from src to (SP)
+  };
+};
+
+Cpu::InstrFunc Cpu::pop(setter16 dst) {
+  return [=, this] {
+    // TODO: Read from (SP) to dst
+    sp.set(sp.get() + 2);
+  };
+};
