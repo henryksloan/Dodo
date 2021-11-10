@@ -50,6 +50,7 @@ class Cpu {
   InstrFunc logic_op(getter src, std::function<uint8_t(uint8_t, uint8_t)> op,
                      bool h_flag);
   InstrFunc step_op(getter get, setter set, bool incr);
+  InstrFunc daa();
   InstrFunc cpl();
   InstrFunc step16_op(getter16 get, setter16 set, bool incr);
   InstrFunc add_hl(getter16 src);

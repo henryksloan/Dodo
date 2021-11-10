@@ -160,7 +160,8 @@ void Cpu::initOpcodeTables() {
         step_op(src_8_bit_lo_e[i], dst_8_bit_lo_e[i], false);
   }
 
-  // TODO: $27 DAA
+  // $27
+  opcodes[0x27] = daa();
   // $2F
   opcodes[0x2F] = cpl();
 
@@ -353,6 +354,24 @@ Cpu::InstrFunc Cpu::step_op(getter get, setter set, bool incr) {
     setFlag(kFlagOffZ, result == 0);
     setFlag(kFlagOffN, 1 - incr);
     setFlag(kFlagOffH, (((a & 0xf) + 1) & 0x10) == 0x10);
+  };
+}
+
+// https://ehaskins.com/2018-01-30%20Z80%20DAA/
+Cpu::InstrFunc Cpu::daa() {
+  return [=, this] {
+    bool new_carry = false;
+    uint8_t a = af.get_hi();
+    uint8_t correction = 0;
+    if (getFlag(kFlagOffH) || (!getFlag(kFlagOffN) && (a & 0xf) > 9)) {
+      correction |= 0x6;
+      new_carry = true;
+    }
+    a += getFlag(kFlagOffN) ? -correction : correction;
+
+    setFlag(kFlagOffZ, a == 0);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, new_carry);
   };
 }
 
