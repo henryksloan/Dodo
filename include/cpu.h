@@ -50,6 +50,9 @@ class Cpu {
                      bool h_flag);
   InstrFunc step_op(getter get, setter set, bool incr);
   InstrFunc cpl();
+  InstrFunc step16_op(getter16 get, setter16 set, bool incr);
+  InstrFunc add_hl(getter16 src);
+  InstrFunc add_sp();
 };
 
 #endif  // DODO_CPU_H_

@@ -19,6 +19,8 @@ void Cpu::initOpcodeTables() {
   const auto [get_bc, set_bc, get_b, set_b, get_c, set_c] = get_set(bc);
   const auto [get_de, set_de, get_d, set_d, get_e, set_e] = get_set(de);
   const auto [get_hl, set_hl, get_h, set_h, get_l, set_l] = get_set(hl);
+  const auto get_sp = [this] { return sp.get(); };
+  const auto set_sp = [this](uint16_t val) { sp.set(val); };
 
   const auto get_mem_hl = [this]() { /* TODO */ return 0; };
   const auto set_mem_hl = [this](uint8_t val) { /* TODO */ };
@@ -97,7 +99,7 @@ void Cpu::initOpcodeTables() {
   opcodes[0x01] = ld16(set_bc, d16);
   opcodes[0x11] = ld16(set_de, d16);
   opcodes[0x21] = ld16(set_hl, d16);
-  opcodes[0x31] = ld16([this](uint16_t val) { sp.set(val); }, d16);
+  opcodes[0x31] = ld16(set_sp, d16);
 
   // $08
   const auto set_mem16_a16 = [this](uint16_t val) { /* TODO */ };
@@ -114,7 +116,7 @@ void Cpu::initOpcodeTables() {
   // $F8, $F9
   const auto sp_plus_r8 = [this] { /* TODO */ return 0; };
   opcodes[0xF8] = ld16(set_hl, sp_plus_r8);
-  opcodes[0xF9] = ld16([this](uint16_t val) { sp.set(val); }, get_hl);
+  opcodes[0xF9] = ld16(set_sp, get_hl);
 
   // === 8-bit arithmetic/logic instructions ===
 
@@ -153,10 +155,24 @@ void Cpu::initOpcodeTables() {
         step_op(src_8_bit_lo_e[i], dst_8_bit_lo_e[i], true);
     opcodes[(i * 0x10) | 0xD] =
         step_op(src_8_bit_lo_e[i], dst_8_bit_lo_e[i], false);
-
-    // TODO: $27 DAA
-    opcodes[0x2F] = cpl();
   }
+
+  // TODO: $27 DAA
+  // $2F
+  opcodes[0x2F] = cpl();
+
+  // === 16-bit arithmetic/logic instructions ===
+  // ${0,1,2,3}{3,9,B}
+  auto src_16_bit_arith = getters{get_bc, get_de, get_hl, get_sp};
+  auto dst_16_bit_arith = setters{set_bc, set_de, set_hl, set_sp};
+  for (int i = 0; i < 4; i++) {
+    opcodes[(i * 0x10) | 0x3] =
+        step16_op(src_16_bit_arith[i], dst_16_bit_arith[i], true);
+    opcodes[(i * 0x10) | 0x9] = add_hl(src_16_bit_arith[i]);
+    opcodes[(i * 0x10) | 0xB] =
+        step16_op(src_16_bit_arith[i], dst_16_bit_arith[i], false);
+  }
+  opcodes[0xE8] = add_sp();
 }
 
 Cpu::InstrFunc Cpu::ld(setter dst, getter src) {
@@ -249,3 +265,39 @@ Cpu::InstrFunc Cpu::cpl() {
     setFlag(kFlagOffH, true);
   };
 }
+
+Cpu::InstrFunc Cpu::step16_op(getter16 get, setter16 set, bool incr) {
+  return [=, this] {
+    int16_t diff = (incr * 2) - 1;  // true => 1, false => -1
+    uint16_t a = get();
+    uint16_t result = a + diff;
+    set(result);
+  };
+}
+
+Cpu::InstrFunc Cpu::add_hl(getter16 src) {
+  return [=, this] {
+    uint16_t a = hl.get();
+    uint16_t b = src();
+    uint32_t result = a + b;
+    hl.set(result);
+
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
+    setFlag(kFlagOffC, (result & 0x10000) == 0x10000);
+  };
+};
+
+Cpu::InstrFunc Cpu::add_sp() {
+  return [=, this] {
+    uint16_t a = sp.get();
+    int8_t b = 0;  // TODO: read a signed byte from memory, progress PC
+    uint32_t result = a + b;
+    af.set_hi(result);
+
+    setFlag(kFlagOffZ, false);
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
+    setFlag(kFlagOffC, (result & 0x10000) == 0x10000);
+  };
+};
