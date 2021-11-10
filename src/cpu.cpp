@@ -327,7 +327,9 @@ void Cpu::initOpcodeTables() {
   };
   // $00
   opcodes[0x00] = [] {};  // NOP
-  // TODO: $76 HALT, and STOP ($10 followed by any byte)
+  // $76
+  opcodes[0x76] = [=, this] { halted = true; };
+  // TODO: STOP ($10 followed by any byte)
   // $F3
   opcodes[0xF3] = [=, this] { ime = false; };
   // $FB
