@@ -62,6 +62,8 @@ class Cpu {
   InstrFunc swap(getter src, setter dst);
   InstrFunc sra(getter src, setter dst);
   InstrFunc srl(getter src, setter dst);
+  InstrFunc bit(getter src, int bit_n);
+  InstrFunc set_reset(getter src, setter dst, int bit_n, bool set);
   InstrFunc cb();
   InstrFunc jump(getter16 src, bool relative, int condition_off = 0,
                  bool negate_condition = false);

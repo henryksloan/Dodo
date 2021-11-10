@@ -202,6 +202,23 @@ void Cpu::initOpcodeTables() {
     cb_opcodes[0x30 | (lo + 0x8)] = srl(src, dst);
   }
 
+  // === Single-bit operation instructions ===
+  // $CB suffix ${4-F}*
+  for (int lo = 0; lo < src_8_bit.size(); lo++) {
+    auto &src = src_8_bit[lo];
+    auto &dst = dst_8_bit[lo];
+    for (int i = 0; i < 4; i++) {
+      cb_opcodes[((0x4 + i) * 10) | lo] = bit(src, 2 * i);
+      cb_opcodes[((0x4 + i) * 10) | (lo + 0x8)] = bit(src, 2 * i + 1);
+      cb_opcodes[((0x8 + i) * 10) | lo] = set_reset(src, dst, 2 * i, false);
+      cb_opcodes[((0x8 + i) * 10) | (lo + 0x8)] =
+          set_reset(src, dst, 2 * i + 1, false);
+      cb_opcodes[((0xC + i) * 10) | lo] = set_reset(src, dst, 2 * i, true);
+      cb_opcodes[((0xC + i) * 10) | (lo + 0x8)] =
+          set_reset(src, dst, 2 * i + 1, true);
+    }
+  }
+
   // === CPU control instructions ===
 
   // $3F
@@ -498,6 +515,25 @@ Cpu::InstrFunc Cpu::srl(getter src, setter dst) {
     setFlag(kFlagOffN, false);
     setFlag(kFlagOffH, false);
     setFlag(kFlagOffC, bottom);
+  };
+}
+
+Cpu::InstrFunc Cpu::bit(getter src, int bit_n) {
+  return [=, this] {
+    bool val = (src() >> bit_n) & 1;
+
+    setFlag(kFlagOffZ, !val);
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, true);
+  };
+}
+
+Cpu::InstrFunc Cpu::set_reset(getter src, setter dst, int bit_n, bool set) {
+  return [=, this] {
+    uint8_t a = src();
+    a &= !(1 << bit_n);
+    if (set) a |= (1 << bit_n);
+    dst(a);
   };
 }
 
