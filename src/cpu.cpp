@@ -4,7 +4,7 @@
 #include <tuple>
 #include <vector>
 
-Cpu::Cpu() { initOpcodeTables(); }
+Cpu::Cpu(std::shared_ptr<Bus> bus) : bus(bus) { initOpcodeTables(); }
 
 // https://gbdev.io/pandocs/CPU_Instruction_Set.html
 void Cpu::initOpcodeTables() {

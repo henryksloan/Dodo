@@ -1,6 +1,6 @@
-#include "cpu.h"
+#include "gameboy.h"
 
 int main(int argc, char **argv) {
-  Cpu cpu;
+  Gameboy gameboy;
   return 0;
 }

@@ -3,7 +3,9 @@
 
 #include <cstdint>
 #include <functional>
+#include <memory>
 
+#include "bus.h"
 #include "cpu_register.h"
 
 const int kFlagOffZ = 7;
@@ -13,9 +15,11 @@ const int kFlagOffC = 4;
 
 class Cpu {
  public:
-  Cpu();
+  Cpu(std::shared_ptr<Bus> bus);
 
  private:
+  std::shared_ptr<Bus> bus;
+
   CpuRegister af, bc, de, hl, sp, pc;
   bool ime;  // Master interrupt enable flag
 
