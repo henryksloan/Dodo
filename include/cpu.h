@@ -21,13 +21,14 @@ class Cpu {
   // returning the number of m-cycles taken
   int step();
 
-  void request_interrupt();
+  bool check_for_interrupt();
 
  private:
   std::shared_ptr<Bus> bus;
 
   CpuRegister af, bc, de, hl, sp, pc;
   bool ime;  // Master interrupt enable flag
+  bool halted;
 
   bool getFlag(int offset) { return ((af.get_lo() >> offset) & 1) == 1; }
   void setFlag(int offset, bool val) {

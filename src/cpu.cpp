@@ -7,6 +7,14 @@
 Cpu::Cpu(std::shared_ptr<Bus> bus) : bus(bus) { initOpcodeTables(); }
 
 int Cpu::step() {
+  if (check_for_interrupt()) {
+    return 4;
+  }
+
+  if (halted) {
+    return 1;
+  }
+
   uint8_t opcode = bus->read(pc.get());
   pc.set(pc.get() + 1);
   if (opcode == 0xCB) {
@@ -17,8 +25,27 @@ int Cpu::step() {
   }
 }
 
-void Cpu::request_interrupt() {
-  // TODO
+bool Cpu::check_for_interrupt() {
+  // Awakening from a HALT doesn't require the master interrupt enable flag
+  if (!ime && !halted) return false;
+
+  uint8_t triggered = bus->get_triggered_interrupts();
+  if (triggered == 0) return false;
+
+  int bit_n;  // The bit index of first one
+  for (bit_n = 0; bit_n < 8 && (((triggered >> bit_n) & 1) == 1); bit_n++)
+    ;
+  if (bit_n > 4) {
+    std::cerr << "invalid interrupt number: " << bit_n << std::endl;
+    exit(1);
+  }
+
+  bus->clear_interrupt(bit_n);
+  sp.set(sp.get() - 2);
+  bus->write16(sp.get(), pc.get());
+  pc.set(0x0040 | (bit_n << 3));
+
+  return 4;
 }
 
 // https://gbdev.io/pandocs/CPU_Instruction_Set.html
