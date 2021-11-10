@@ -172,7 +172,16 @@ void Cpu::initOpcodeTables() {
     opcodes[(i * 0x10) | 0xB] =
         step16_op(src_16_bit_arith[i], dst_16_bit_arith[i], false);
   }
+  // $E8
   opcodes[0xE8] = add_sp();
+
+  // === Rotate and shift instructions ===
+
+  // $07, $17, $0F, $1F
+  opcodes[0x07] = rlc(get_a, set_a, true);
+  opcodes[0x17] = rl(get_a, set_a, true);
+  opcodes[0x0F] = rrc(get_a, set_a, true);
+  opcodes[0x1F] = rr(get_a, set_a, true);
 }
 
 Cpu::InstrFunc Cpu::ld(setter dst, getter src) {
@@ -299,5 +308,63 @@ Cpu::InstrFunc Cpu::add_sp() {
     setFlag(kFlagOffN, false);
     setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
     setFlag(kFlagOffC, (result & 0x10000) == 0x10000);
+  };
+};
+
+Cpu::InstrFunc Cpu::rlc(getter src, setter dst, bool reg_a) {
+  return [=, this] {
+    uint8_t a = src();
+    bool top = (a >> 7) == 1;
+    a = (a << 1) | top;
+    dst(a);
+
+    setFlag(kFlagOffZ, !reg_a && (a == 0));
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, top);
+  };
+};
+
+Cpu::InstrFunc Cpu::rl(getter src, setter dst, bool reg_a) {
+  return [=, this] {
+    bool old_carry = getFlag(kFlagOffC);
+    uint8_t a = src();
+    bool top = (a >> 7) == 1;
+    a = (a << 1) | old_carry;
+    dst(a);
+
+    setFlag(kFlagOffZ, !reg_a && (a == 0));
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, top);
+  };
+};
+
+Cpu::InstrFunc Cpu::rrc(getter src, setter dst, bool reg_a) {
+  return [=, this] {
+    uint8_t a = src();
+    bool bottom = a & 1;
+    a = (bottom << 7) | (a >> 1);
+    dst(a);
+
+    setFlag(kFlagOffZ, !reg_a && (a == 0));
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, bottom);
+  };
+};
+
+Cpu::InstrFunc Cpu::rr(getter src, setter dst, bool reg_a) {
+  return [=, this] {
+    bool old_carry = getFlag(kFlagOffC);
+    uint8_t a = src();
+    bool bottom = a & 1;
+    a = (old_carry << 7) | (a >> 1);
+    dst(a);
+
+    setFlag(kFlagOffZ, !reg_a && (a == 0));
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, bottom);
   };
 };
