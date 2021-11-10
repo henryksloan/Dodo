@@ -17,6 +17,12 @@ class Cpu {
  public:
   Cpu(std::shared_ptr<Bus> bus);
 
+  // If the CPU is running, execute a single instruction,
+  // returning the number of m-cycles taken
+  int step();
+
+  void request_interrupt();
+
  private:
   std::shared_ptr<Bus> bus;
 
@@ -32,8 +38,8 @@ class Cpu {
   }
 
   using InstrFunc = std::function<void(void)>;
-  InstrFunc opcodes[0xFF];     // Lookup table of opcodes to functions
-  InstrFunc cb_opcodes[0xFF];  // Table of $CB-prefixed opcodes
+  InstrFunc opcodes[0x100];     // Lookup table of opcodes to functions
+  InstrFunc cb_opcodes[0x100];  // Table of $CB-prefixed opcodes
 
   void initOpcodeTables();
 
@@ -69,7 +75,7 @@ class Cpu {
   InstrFunc srl(getter src, setter dst);
   InstrFunc bit(getter src, int bit_n);
   InstrFunc set_reset(getter src, setter dst, int bit_n, bool set);
-  InstrFunc cb();
+  int execute_cb();
   InstrFunc jump(getter16 src, bool relative, int condition_off = 0,
                  bool negate_condition = false);
   InstrFunc call(getter16 src, int condition_off = 0,
@@ -80,3 +86,43 @@ class Cpu {
 };
 
 #endif  // DODO_CPU_H_
+
+// clang-format off
+const int opcodes_mcycles[0x100] = {
+  1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1,
+  1, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1,
+  2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1,
+  2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1,
+  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+  2, 2, 2, 2, 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 2, 1,
+  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+  1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1,
+  2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 0, 3, 6, 2, 4,
+  2, 3, 3, 0, 3, 4, 2, 4, 2, 4, 3, 0, 3, 0, 2, 4,
+  3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4,
+  3, 3, 2, 1, 0, 4, 2, 4, 3, 2, 4, 1, 0, 0, 2, 4
+};
+
+const int cb_opcodes_mcycles[0x100] = {
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+  2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+  2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+  2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2,
+  2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2
+};
+// clang-format on

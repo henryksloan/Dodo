@@ -6,6 +6,21 @@
 
 Cpu::Cpu(std::shared_ptr<Bus> bus) : bus(bus) { initOpcodeTables(); }
 
+int Cpu::step() {
+  uint8_t opcode = bus->read(pc.get());
+  pc.set(pc.get() + 1);
+  if (opcode == 0xCB) {
+    return execute_cb();
+  } else {
+    opcodes[opcode]();
+    return opcodes_mcycles[opcode];
+  }
+}
+
+void Cpu::request_interrupt() {
+  // TODO
+}
+
 // https://gbdev.io/pandocs/CPU_Instruction_Set.html
 void Cpu::initOpcodeTables() {
   const auto get_set = [](CpuRegister &reg) {
@@ -25,8 +40,7 @@ void Cpu::initOpcodeTables() {
   const auto get_mem_hl = [this]() { return bus->read(hl.get()); };
   const auto set_mem_hl = [this](uint8_t val) { bus->write(hl.get(), val); };
 
-  // $CB
-  opcodes[0xCB] = [=, this] { cb(); };
+  // ($CB is a prefix operator, so it is executed through execute_cb)
 
   // === 8-bit load instructions ===
 
@@ -608,12 +622,11 @@ Cpu::InstrFunc Cpu::set_reset(getter src, setter dst, int bit_n, bool set) {
   };
 }
 
-Cpu::InstrFunc Cpu::cb() {
-  return [=, this] {
-    uint8_t cb_opcode = bus->read(pc.get());
-    pc.set(pc.get() + 1);
-    return cb_opcodes[cb_opcode];
-  };
+int Cpu::execute_cb() {
+  uint8_t cb_opcode = bus->read(pc.get());
+  pc.set(pc.get() + 1);
+  cb_opcodes[cb_opcode]();
+  return cb_opcodes_mcycles[cb_opcode];
 }
 
 Cpu::InstrFunc Cpu::jump(getter16 src, bool relative,
