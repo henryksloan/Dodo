@@ -58,6 +58,10 @@ class Cpu {
   InstrFunc rl(getter src, setter dst, bool reg_a);
   InstrFunc rrc(getter src, setter dst, bool reg_a);
   InstrFunc rr(getter src, setter dst, bool reg_a);
+  InstrFunc sla(getter src, setter dst);
+  InstrFunc swap(getter src, setter dst);
+  InstrFunc sra(getter src, setter dst);
+  InstrFunc srl(getter src, setter dst);
   InstrFunc cb();
   InstrFunc jump(getter16 src, bool relative, int condition_off = 0,
                  bool negate_condition = false);

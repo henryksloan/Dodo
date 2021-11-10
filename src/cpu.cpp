@@ -25,6 +25,9 @@ void Cpu::initOpcodeTables() {
   const auto get_mem_hl = [this]() { /* TODO */ return 0; };
   const auto set_mem_hl = [this](uint8_t val) { /* TODO */ };
 
+  // $CB
+  opcodes[0xCB] = [=, this] { cb(); };
+
   // === 8-bit load instructions ===
 
   // All the opcodes with hi nybble 4, 5, 6, and 7, excluding $76 (HALT)
@@ -177,21 +180,42 @@ void Cpu::initOpcodeTables() {
 
   // === Rotate and shift instructions ===
 
-  // $CB
-  opcodes[0xCB] = [=, this] { cb(); };
-
   // $07, $17, $0F, $1F
   opcodes[0x07] = rlc(get_a, set_a, true);
   opcodes[0x17] = rl(get_a, set_a, true);
   opcodes[0x0F] = rrc(get_a, set_a, true);
   opcodes[0x1F] = rr(get_a, set_a, true);
 
+  auto dst_8_bit =
+      setters{set_b, set_c, set_d, set_e, set_h, set_l, set_mem_hl, set_a};
+  // $CB suffix ${0,1,2,3}*
+  for (int lo = 0; lo < src_8_bit.size(); lo++) {
+    auto &src = src_8_bit[lo];
+    auto &dst = dst_8_bit[lo];
+    cb_opcodes[0x00 | lo] = rlc(src, dst, false);
+    cb_opcodes[0x10 | lo] = rl(src, dst, false);
+    cb_opcodes[0x20 | lo] = sla(src, dst);
+    cb_opcodes[0x30 | lo] = swap(src, dst);
+    cb_opcodes[0x00 | (lo + 0x8)] = rrc(src, dst, false);
+    cb_opcodes[0x10 | (lo + 0x8)] = rr(src, dst, false);
+    cb_opcodes[0x20 | (lo + 0x8)] = sra(src, dst);
+    cb_opcodes[0x30 | (lo + 0x8)] = srl(src, dst);
+  }
+
   // === CPU control instructions ===
 
   // $3F
-  opcodes[0x3F] = [=, this] { setFlag(kFlagOffC, !getFlag(kFlagOffC)); };
+  opcodes[0x3F] = [=, this] {
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, !getFlag(kFlagOffC));
+  };
   // $37
-  opcodes[0x37] = [=, this] { setFlag(kFlagOffC, true); };
+  opcodes[0x37] = [=, this] {
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, true);
+  };
   // $00
   opcodes[0x00] = [] {};  // NOP
   // TODO: $76 HALT, and STOP ($10 followed by any byte)
@@ -346,7 +370,7 @@ Cpu::InstrFunc Cpu::add_hl(getter16 src) {
     setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
     setFlag(kFlagOffC, (result & 0x10000) == 0x10000);
   };
-};
+}
 
 Cpu::InstrFunc Cpu::add_sp() {
   return [=, this] {
@@ -360,7 +384,7 @@ Cpu::InstrFunc Cpu::add_sp() {
     setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
     setFlag(kFlagOffC, (result & 0x10000) == 0x10000);
   };
-};
+}
 
 Cpu::InstrFunc Cpu::rlc(getter src, setter dst, bool reg_a) {
   return [=, this] {
@@ -374,7 +398,7 @@ Cpu::InstrFunc Cpu::rlc(getter src, setter dst, bool reg_a) {
     setFlag(kFlagOffH, false);
     setFlag(kFlagOffC, top);
   };
-};
+}
 
 Cpu::InstrFunc Cpu::rl(getter src, setter dst, bool reg_a) {
   return [=, this] {
@@ -389,7 +413,7 @@ Cpu::InstrFunc Cpu::rl(getter src, setter dst, bool reg_a) {
     setFlag(kFlagOffH, false);
     setFlag(kFlagOffC, top);
   };
-};
+}
 
 Cpu::InstrFunc Cpu::rrc(getter src, setter dst, bool reg_a) {
   return [=, this] {
@@ -403,7 +427,7 @@ Cpu::InstrFunc Cpu::rrc(getter src, setter dst, bool reg_a) {
     setFlag(kFlagOffH, false);
     setFlag(kFlagOffC, bottom);
   };
-};
+}
 
 Cpu::InstrFunc Cpu::rr(getter src, setter dst, bool reg_a) {
   return [=, this] {
@@ -418,7 +442,64 @@ Cpu::InstrFunc Cpu::rr(getter src, setter dst, bool reg_a) {
     setFlag(kFlagOffH, false);
     setFlag(kFlagOffC, bottom);
   };
-};
+}
+
+Cpu::InstrFunc Cpu::sla(getter src, setter dst) {
+  return [=, this] {
+    uint8_t a = src();
+    bool top = (a >> 7) == 1;
+    a = a << 1;
+    dst(a);
+
+    setFlag(kFlagOffZ, a == 0);
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, top);
+  };
+}
+
+Cpu::InstrFunc Cpu::swap(getter src, setter dst) {
+  return [=, this] {
+    uint8_t a = src();
+    uint8_t temp = a & 0xFF;
+    a = (temp << 4) | (a >> 4);
+    dst(a);
+
+    setFlag(kFlagOffZ, a == 0);
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, false);
+  };
+}
+
+Cpu::InstrFunc Cpu::sra(getter src, setter dst) {
+  return [=, this] {
+    uint8_t a = src();
+    bool top = a & 0x80;
+    bool bottom = a & 1;
+    a = top | (a >> 1);
+    dst(a);
+
+    setFlag(kFlagOffZ, a == 0);
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, bottom);
+  };
+}
+
+Cpu::InstrFunc Cpu::srl(getter src, setter dst) {
+  return [=, this] {
+    uint8_t a = src();
+    bool bottom = a & 1;
+    a >>= 1;
+    dst(a);
+
+    setFlag(kFlagOffZ, a == 0);
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, false);
+    setFlag(kFlagOffC, bottom);
+  };
+}
 
 Cpu::InstrFunc Cpu::cb() {
   // TODO: Read a byte, progress PC, then dispatch to cb_opcodes
