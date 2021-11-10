@@ -199,6 +199,40 @@ void Cpu::initOpcodeTables() {
   opcodes[0xF3] = [=, this] { ime = false; };
   // $FB
   opcodes[0xFB] = [=, this] { ime = true; };
+
+  // === Jump instructions ===
+  const auto get_a16 = [this] { /* TODO */ return 0; };
+  // $C3, $E9, ${C,D}{2,A}
+  opcodes[0xC3] = jump(get_a16, false);
+  opcodes[0xE9] = jump(get_hl, false);
+  opcodes[0xC2] = jump(get_a16, false, kFlagOffZ, true);
+  opcodes[0xD2] = jump(get_a16, false, kFlagOffC, true);
+  opcodes[0xCA] = jump(get_a16, false, kFlagOffZ, false);
+  opcodes[0xDA] = jump(get_a16, false, kFlagOffC, false);
+  // $18, $20, $30, $28, $38
+  opcodes[0x18] = jump(d8, true);
+  opcodes[0x20] = jump(d8, true, kFlagOffZ, true);
+  opcodes[0x30] = jump(d8, true, kFlagOffC, true);
+  opcodes[0x28] = jump(d8, true, kFlagOffZ, false);
+  opcodes[0x38] = jump(d8, true, kFlagOffC, false);
+  // $CD, $C4, $D4, $CC, $DC
+  opcodes[0xCD] = call(get_a16);
+  opcodes[0xC4] = call(get_a16, kFlagOffZ, true);
+  opcodes[0xD4] = call(get_a16, kFlagOffC, true);
+  opcodes[0xCC] = call(get_a16, kFlagOffZ, false);
+  opcodes[0xDC] = call(get_a16, kFlagOffC, false);
+  // $C9, $D9, $C0, $D0, $C8, $D8
+  opcodes[0xC9] = ret(false);
+  opcodes[0xD9] = ret(true);
+  opcodes[0xC0] = ret(false, kFlagOffZ, true);
+  opcodes[0xD0] = ret(false, kFlagOffC, true);
+  opcodes[0xC8] = ret(false, kFlagOffZ, false);
+  opcodes[0xD8] = ret(false, kFlagOffC, false);
+  // ${C,D,E,F}{7,F}
+  for (int i = 0; i < 4; i++) {
+    opcodes[((0xC + i) * 10) | 0x7] = rst(0x10 * i);
+    opcodes[((0xC + i) * 10) | 0xF] = rst(0x10 * i + 0x8);
+  }
 }
 
 Cpu::InstrFunc Cpu::ld(setter dst, getter src) {
@@ -389,4 +423,47 @@ Cpu::InstrFunc Cpu::rr(getter src, setter dst, bool reg_a) {
 Cpu::InstrFunc Cpu::cb() {
   // TODO: Read a byte, progress PC, then dispatch to cb_opcodes
   return [] {};
+}
+
+Cpu::InstrFunc Cpu::jump(getter16 src, bool relative,
+                         int condition_off /* = 0 */,
+                         bool negate_condition /* = false */) {
+  return [=, this] {
+    if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
+      if (relative) {
+        int8_t off = src();
+        pc.set(pc.get() + off);
+      } else {
+        pc.set(src());
+      }
+    }
+  };
+}
+
+Cpu::InstrFunc Cpu::call(getter16 src, int condition_off /* = 0 */,
+                         bool negate_condition /* = false */) {
+  return [=, this] {
+    if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
+      sp.set(sp.get() - 2);
+      // TODO: Write from pc to (SP)
+      pc.set(src());
+    }
+  };
+}
+
+Cpu::InstrFunc Cpu::ret(bool enable_interrupt, int condition_off /* = 0 */,
+                        bool negate_condition /* = false */) {
+  return [=, this] {
+    if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
+      // TODO: Read from (SP) to pc
+      sp.set(sp.get() + 2);
+      if (enable_interrupt) {
+        ime = true;
+      }
+    }
+  };
+}
+
+Cpu::InstrFunc Cpu::rst(uint8_t addr) {
+  return call([=] { return addr; });
 }

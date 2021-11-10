@@ -59,6 +59,13 @@ class Cpu {
   InstrFunc rrc(getter src, setter dst, bool reg_a);
   InstrFunc rr(getter src, setter dst, bool reg_a);
   InstrFunc cb();
+  InstrFunc jump(getter16 src, bool relative, int condition_off = 0,
+                 bool negate_condition = false);
+  InstrFunc call(getter16 src, int condition_off = 0,
+                 bool negate_condition = false);
+  InstrFunc ret(bool enable_interrupt, int condition_off = 0,
+                bool negate_condition = false);
+  InstrFunc rst(uint8_t addr);
 };
 
 #endif  // DODO_CPU_H_
