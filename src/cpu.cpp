@@ -177,11 +177,28 @@ void Cpu::initOpcodeTables() {
 
   // === Rotate and shift instructions ===
 
+  // $CB
+  opcodes[0xCB] = [=, this] { cb(); };
+
   // $07, $17, $0F, $1F
   opcodes[0x07] = rlc(get_a, set_a, true);
   opcodes[0x17] = rl(get_a, set_a, true);
   opcodes[0x0F] = rrc(get_a, set_a, true);
   opcodes[0x1F] = rr(get_a, set_a, true);
+
+  // === CPU control instructions ===
+
+  // $3F
+  opcodes[0x3F] = [=, this] { setFlag(kFlagOffC, !getFlag(kFlagOffC)); };
+  // $37
+  opcodes[0x37] = [=, this] { setFlag(kFlagOffC, true); };
+  // $00
+  opcodes[0x00] = [] {};  // NOP
+  // TODO: $76 HALT, and STOP ($10 followed by any byte)
+  // $F3
+  opcodes[0xF3] = [=, this] { ime = false; };
+  // $FB
+  opcodes[0xFB] = [=, this] { ime = true; };
 }
 
 Cpu::InstrFunc Cpu::ld(setter dst, getter src) {
@@ -368,3 +385,8 @@ Cpu::InstrFunc Cpu::rr(getter src, setter dst, bool reg_a) {
     setFlag(kFlagOffC, bottom);
   };
 };
+
+Cpu::InstrFunc Cpu::cb() {
+  // TODO: Read a byte, progress PC, then dispatch to cb_opcodes
+  return [] {};
+}

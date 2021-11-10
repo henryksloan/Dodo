@@ -17,6 +17,7 @@ class Cpu {
 
  private:
   CpuRegister af, bc, de, hl, sp, pc;
+  bool ime;  // Master interrupt enable flag
 
   bool getFlag(int offset) { return ((af.get_lo() >> offset) & 1) == 1; }
   void setFlag(int offset, bool val) {
@@ -57,6 +58,7 @@ class Cpu {
   InstrFunc rl(getter src, setter dst, bool reg_a);
   InstrFunc rrc(getter src, setter dst, bool reg_a);
   InstrFunc rr(getter src, setter dst, bool reg_a);
+  InstrFunc cb();
 };
 
 #endif  // DODO_CPU_H_
