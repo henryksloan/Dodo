@@ -22,8 +22,8 @@ void Cpu::initOpcodeTables() {
   const auto get_sp = [this] { return sp.get(); };
   const auto set_sp = [this](uint16_t val) { sp.set(val); };
 
-  const auto get_mem_hl = [this]() { /* TODO */ return 0; };
-  const auto set_mem_hl = [this](uint8_t val) { /* TODO */ };
+  const auto get_mem_hl = [this]() { return bus->read(hl.get()); };
+  const auto set_mem_hl = [this](uint8_t val) { bus->write(hl.get(), val); };
 
   // $CB
   opcodes[0xCB] = [=, this] { cb(); };
@@ -45,15 +45,31 @@ void Cpu::initOpcodeTables() {
     opcodes[0x70 | (lo + 0x8)] = ld(set_a, src);
   }
 
-  const auto get_mem_bc = [this] { /* TODO */ return 0; };
-  const auto get_mem_de = [this] { /* TODO */ return 0; };
-  const auto get_mem_hl_inc = [this] { /* TODO */ return 0; };
-  const auto get_mem_hl_dec = [this] { /* TODO */ return 0; };
+  const auto get_mem_bc = [this] { return bus->read(bc.get()); };
+  const auto get_mem_de = [this] { return bus->read(de.get()); };
+  const auto get_mem_hl_inc = [this] {
+    uint16_t temp = hl.get();
+    hl.set(temp + 1);
+    return bus->read(temp);
+  };
+  const auto get_mem_hl_dec = [this] {
+    uint16_t temp = hl.get();
+    hl.set(temp - 1);
+    return bus->read(temp);
+  };
 
-  const auto set_mem_bc = [this](uint8_t val) { /* TODO */ };
-  const auto set_mem_de = [this](uint8_t val) { /* TODO */ };
-  const auto set_mem_hl_inc = [this](uint8_t val) { /* TODO */ };
-  const auto set_mem_hl_dec = [this](uint8_t val) { /* TODO */ };
+  const auto set_mem_bc = [this](uint8_t val) { bus->write(bc.get(), val); };
+  const auto set_mem_de = [this](uint8_t val) { bus->write(de.get(), val); };
+  const auto set_mem_hl_inc = [this](uint8_t val) {
+    uint16_t temp = hl.get();
+    hl.set(temp + 1);
+    return bus->write(temp, val);
+  };
+  const auto set_mem_hl_dec = [this](uint8_t val) {
+    uint16_t temp = hl.get();
+    hl.set(temp - 1);
+    return bus->write(temp, val);
+  };
 
   // $02, $12, $22, $32, $0A, $1A, $2A, $3A
   auto src_8_bit_mem =
@@ -66,7 +82,11 @@ void Cpu::initOpcodeTables() {
   }
 
   // $06, $16, $26, $36, $0E, $1E, $6E, $3E
-  const auto d8 = [this] { /* TODO */ return 0; };
+  const auto d8 = [this] {
+    uint16_t temp = pc.get();
+    pc.set(temp + 1);
+    return bus->read(temp);
+  };
   auto dst_8_bit_lo_6 = setters{set_b, set_d, set_h, set_mem_hl};
   auto dst_8_bit_lo_e = setters{set_c, set_e, set_l, set_a};
   for (int i = 0; i < 4; i++) {
@@ -75,20 +95,37 @@ void Cpu::initOpcodeTables() {
   }
 
   // $E0, $F0
-  const auto get_io_a8 = [this] { /* TODO */ return 0; };
-  const auto set_io_a8 = [this](uint8_t val) { /* TODO */ };
+  const auto get_io_a8 = [this] {
+    uint16_t temp = pc.get();
+    pc.set(temp + 1);
+    return bus->read(0xFF00 + bus->read(temp));
+  };
+  const auto set_io_a8 = [this](uint8_t val) {
+    uint16_t temp = pc.get();
+    pc.set(temp + 1);
+    return bus->write(0xFF00 + bus->read(temp), val);
+  };
   opcodes[0xE0] = ld(set_io_a8, get_a);
   opcodes[0xF0] = ld(set_a, get_io_a8);
 
   // $E2, $F2
-  const auto get_mem_c = [this] { /* TODO */ return 0; };
-  const auto set_mem_c = [this](uint8_t val) { /* TODO */ };
+  const auto get_mem_c = [this] { return bus->read(bc.get_lo()); };
+  const auto set_mem_c = [this](uint8_t val) { bus->write(bc.get_lo(), val); };
   opcodes[0xE2] = ld(set_mem_c, get_a);
   opcodes[0xF2] = ld(set_a, get_mem_c);
 
   // $EA, $FA
-  const auto get_mem_a16 = [this] { /* TODO */ return 0; };
-  const auto set_mem_a16 = [this](uint8_t val) { /* TODO */ };
+  // TODO: Verify that this does the proper little-endian addressing
+  const auto get_mem_a16 = [this] {
+    uint16_t temp = pc.get();
+    pc.set(temp + 2);
+    return bus->read(bus->read16(temp));
+  };
+  const auto set_mem_a16 = [this](uint8_t val) {
+    uint16_t temp = pc.get();
+    pc.set(temp + 2);
+    return bus->write(bus->read16(temp), val);
+  };
   opcodes[0xEA] = ld(set_mem_a16, get_a);
   opcodes[0xFA] = ld(set_a, get_mem_a16);
 
@@ -98,26 +135,39 @@ void Cpu::initOpcodeTables() {
   };
 
   // $01, $11, $21, $31
-  const auto d16 = [this] { /* TODO */ return 0; };
+  const auto d16 = [this] {
+    uint16_t temp = pc.get();
+    pc.set(temp + 2);
+    return bus->read16(temp);
+  };
   opcodes[0x01] = ld16(set_bc, d16);
   opcodes[0x11] = ld16(set_de, d16);
   opcodes[0x21] = ld16(set_hl, d16);
   opcodes[0x31] = ld16(set_sp, d16);
 
   // $08
-  const auto set_mem16_a16 = [this](uint16_t val) { /* TODO */ };
+  const auto set_mem16_a16 = [this](uint16_t val) {
+    uint16_t temp = pc.get();
+    pc.set(temp + 2);
+    return bus->write16(bus->read16(temp), val);
+  };
   opcodes[0x08] = ld16(set_mem_a16, [this] { return sp.get(); });
 
   // $C1, $D1, $E1, $F1, $C5, $D5, $E5, $F5
   const auto push_regs = getters16{get_bc, get_de, get_hl, get_af};
   const auto pop_regs = setters16{set_bc, set_de, set_hl, set_af};
   for (int i = 0xC; i <= 0xF; i++) {
-    opcodes[(i * 0x10) | 0x1] = push(push_regs[i]);
-    opcodes[(i * 0x10) | 0x5] = pop(pop_regs[i]);
+    opcodes[(i * 0x10) | 0x1] = push(push_regs[i - 0xC]);
+    opcodes[(i * 0x10) | 0x5] = pop(pop_regs[i - 0xC]);
   }
 
   // $F8, $F9
-  const auto sp_plus_r8 = [this] { /* TODO */ return 0; };
+  const auto sp_plus_r8 = [this] {
+    uint16_t temp = pc.get();
+    pc.set(temp + 1);
+    int8_t r8 = bus->read(temp);
+    return sp.get() + r8;
+  };
   opcodes[0xF8] = ld16(set_hl, sp_plus_r8);
   opcodes[0xF9] = ld16(set_sp, get_hl);
 
@@ -243,7 +293,8 @@ void Cpu::initOpcodeTables() {
   opcodes[0xFB] = [=, this] { ime = true; };
 
   // === Jump instructions ===
-  const auto get_a16 = [this] { /* TODO */ return 0; };
+  // TODO: Verify that this does the proper little-endian addressing
+  const auto get_a16 = d16;
   // $C3, $E9, ${C,D}{2,A}
   opcodes[0xC3] = jump(get_a16, false);
   opcodes[0xE9] = jump(get_hl, false);
@@ -284,13 +335,13 @@ Cpu::InstrFunc Cpu::ld(setter dst, getter src) {
 Cpu::InstrFunc Cpu::push(getter16 src) {
   return [=, this] {
     sp.set(sp.get() - 2);
-    // TODO: Write from src to (SP)
+    bus->write16(sp.get(), src());
   };
 };
 
 Cpu::InstrFunc Cpu::pop(setter16 dst) {
   return [=, this] {
-    // TODO: Read from (SP) to dst
+    dst(bus->read16(sp.get()));
     sp.set(sp.get() + 2);
   };
 };
@@ -411,7 +462,8 @@ Cpu::InstrFunc Cpu::add_hl(getter16 src) {
 Cpu::InstrFunc Cpu::add_sp() {
   return [=, this] {
     uint16_t a = sp.get();
-    int8_t b = 0;  // TODO: read a signed byte from memory, progress PC
+    int8_t b = bus->read(pc.get());
+    pc.set(pc.get() + 1);
     uint32_t result = a + b;
     af.set_hi(result);
 
@@ -557,8 +609,11 @@ Cpu::InstrFunc Cpu::set_reset(getter src, setter dst, int bit_n, bool set) {
 }
 
 Cpu::InstrFunc Cpu::cb() {
-  // TODO: Read a byte, progress PC, then dispatch to cb_opcodes
-  return [] {};
+  return [=, this] {
+    uint8_t cb_opcode = bus->read(pc.get());
+    pc.set(pc.get() + 1);
+    return cb_opcodes[cb_opcode];
+  };
 }
 
 Cpu::InstrFunc Cpu::jump(getter16 src, bool relative,
@@ -581,7 +636,7 @@ Cpu::InstrFunc Cpu::call(getter16 src, int condition_off /* = 0 */,
   return [=, this] {
     if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
       sp.set(sp.get() - 2);
-      // TODO: Write from pc to (SP)
+      bus->write16(sp.get(), pc.get());
       pc.set(src());
     }
   };
@@ -591,7 +646,7 @@ Cpu::InstrFunc Cpu::ret(bool enable_interrupt, int condition_off /* = 0 */,
                         bool negate_condition /* = false */) {
   return [=, this] {
     if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
-      // TODO: Read from (SP) to pc
+      pc.set(bus->read16(sp.get()));
       sp.set(sp.get() + 2);
       if (enable_interrupt) {
         ime = true;

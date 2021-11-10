@@ -15,6 +15,18 @@ class Bus {
  public:
   Bus() : wram(), hram(), vram(), oam() {}
 
+  uint8_t read(uint16_t addr);
+  void write(uint16_t addr, uint8_t data);
+
+  uint16_t read16(uint16_t addr) {
+    uint8_t lo = read(addr);
+    return (read(addr + 1) << 8) | lo;
+  }
+  void write16(uint16_t addr, uint16_t data) {
+    write(addr, data & 0xFF);
+    write(addr + 1, data >> 8);
+  }
+
  private:
   std::array<uint8_t, kWramSize> wram;
   std::array<uint8_t, kHramSize> hram;
