@@ -21,6 +21,8 @@ class Bus {
  public:
   Bus() : wram(), hram(), vram(), oam() {}
 
+  void tick(int cpu_tcycles);
+
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);
 
@@ -36,6 +38,8 @@ class Bus {
   uint8_t get_triggered_interrupts();
   void clear_interrupt(int bit_n);
 
+  int progressDma();
+
  private:
   std::array<uint8_t, kWramSize> wram;
   std::array<uint8_t, kHramSize> hram;
@@ -43,6 +47,7 @@ class Bus {
   std::shared_ptr<std::array<uint8_t, kOamSize>> oam;
 
   uint8_t int_enable, int_request;  // $FFFF IE and $FF0F IF
+  bool double_speed;
 };
 
 #endif  // DODO_BUS_H_
