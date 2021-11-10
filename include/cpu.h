@@ -6,12 +6,25 @@
 
 #include "cpu_register.h"
 
+const int kFlagOffZ = 7;
+const int kFlagOffN = 6;
+const int kFlagOffH = 5;
+const int kFlagOffC = 4;
+
 class Cpu {
  public:
   Cpu();
 
  private:
   CpuRegister af, bc, de, hl, sp, pc;
+
+  bool getFlag(int offset) { return ((af.get_lo() >> offset) & 1) == 1; }
+  void setFlag(int offset, bool val) {
+    uint8_t new_f = af.get_lo();
+    new_f &= !(1 << offset);
+    new_f |= val << offset;
+    af.set_lo(new_f);
+  }
 
   using InstrFunc = std::function<void(void)>;
   InstrFunc opcodes[0xFF];     // Lookup table of opcodes to functions
@@ -31,6 +44,12 @@ class Cpu {
   InstrFunc ld(setter dst, getter src);
   InstrFunc push(getter16 src);
   InstrFunc pop(setter16 dst);
+  InstrFunc add(getter src, bool carry);
+  InstrFunc sub(getter src, bool carry, bool compare);
+  InstrFunc logic_op(getter src, std::function<uint8_t(uint8_t, uint8_t)> op,
+                     bool h_flag);
+  InstrFunc step_op(getter get, setter set, bool incr);
+  InstrFunc cpl();
 };
 
 #endif  // DODO_CPU_H_

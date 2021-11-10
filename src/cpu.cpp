@@ -115,6 +115,48 @@ void Cpu::initOpcodeTables() {
   const auto sp_plus_r8 = [this] { /* TODO */ return 0; };
   opcodes[0xF8] = ld16(set_hl, sp_plus_r8);
   opcodes[0xF9] = ld16([this](uint16_t val) { sp.set(val); }, get_hl);
+
+  // === 8-bit arithmetic/logic instructions ===
+
+  // All the opcodes with hi nybble 8, 9, A, and B
+  for (int lo = 0; lo < src_8_bit.size(); lo++) {
+    auto &src = src_8_bit[lo];
+    opcodes[0x80 | lo] = add(src, false);
+    opcodes[0x90 | lo] = sub(src, false, false);
+    opcodes[0xA0 | lo] = logic_op(src, std::bit_and<uint8_t>(), true);
+    opcodes[0xB0 | lo] = logic_op(src, std::bit_or<uint8_t>(), false);
+    opcodes[0x80 | (lo + 0x8)] = add(src, true);
+    opcodes[0x90 | (lo + 0x8)] = sub(src, true, false);
+    opcodes[0xA0 | (lo + 0x8)] = logic_op(src, std::bit_xor<uint8_t>(), false);
+    opcodes[0xB0 | (lo + 0x8)] = sub(src, false, true);
+  }
+
+  // $C6, $D6, $E6, $F6, $CE, $DE, $EE, $FE
+  opcodes[0xC6] = add(d8, false);
+  opcodes[0xD6] = sub(d8, false, false);
+  opcodes[0xE6] = logic_op(d8, std::bit_and<uint8_t>(), true);
+  opcodes[0xF6] = logic_op(d8, std::bit_or<uint8_t>(), true);
+  opcodes[0xCE] = add(d8, true);
+  opcodes[0xDE] = sub(d8, true, false);
+  opcodes[0xEE] = logic_op(d8, std::bit_xor<uint8_t>(), true);
+  opcodes[0xFE] = sub(d8, false, true);
+
+  // ${0,1,2,3}{4,5,C,D}
+  auto src_8_bit_lo_6 = getters{get_b, get_d, get_h, get_mem_hl};
+  auto src_8_bit_lo_e = getters{get_c, get_e, get_l, get_a};
+  for (int i = 0; i < 4; i++) {
+    opcodes[(i * 0x10) | 0x4] =
+        step_op(src_8_bit_lo_6[i], dst_8_bit_lo_6[i], true);
+    opcodes[(i * 0x10) | 0x5] =
+        step_op(src_8_bit_lo_6[i], dst_8_bit_lo_6[i], false);
+    opcodes[(i * 0x10) | 0xC] =
+        step_op(src_8_bit_lo_e[i], dst_8_bit_lo_e[i], true);
+    opcodes[(i * 0x10) | 0xD] =
+        step_op(src_8_bit_lo_e[i], dst_8_bit_lo_e[i], false);
+
+    // TODO: $27 DAA
+    opcodes[0x2F] = cpl();
+  }
 }
 
 Cpu::InstrFunc Cpu::ld(setter dst, getter src) {
@@ -134,3 +176,76 @@ Cpu::InstrFunc Cpu::pop(setter16 dst) {
     sp.set(sp.get() + 2);
   };
 };
+
+Cpu::InstrFunc Cpu::add(getter src, bool carry) {
+  return [=, this] {
+    uint8_t a = af.get_hi();
+    uint8_t b = src();
+    uint16_t result = a + b;
+    uint8_t carry_if_any = carry && getFlag(kFlagOffC);
+    result += carry_if_any;
+    af.set_hi(result);
+
+    setFlag(kFlagOffZ, (result & 0xFF) == 0);
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
+    setFlag(kFlagOffC, (result & 0x100) == 0x100);
+  };
+};
+
+Cpu::InstrFunc Cpu::sub(getter src, bool carry, bool compare) {
+  return [=, this] {
+    uint8_t a = af.get_hi();
+    uint8_t b = src();
+    uint16_t result = a - b;
+    uint8_t carry_if_any = carry && getFlag(kFlagOffC);
+    result -= carry_if_any;
+    if (!compare) {
+      af.set_hi(result);
+    }
+
+    setFlag(kFlagOffZ, (result & 0xFF) == 0);
+    setFlag(kFlagOffN, true);
+    // TODO: Is this correct?
+    setFlag(kFlagOffH, ((b & 0xF) + carry_if_any) > (a & 0xF));
+    setFlag(kFlagOffC, ((uint16_t)b + carry_if_any) > a);
+  };
+};
+
+Cpu::InstrFunc Cpu::logic_op(getter src,
+                             std::function<uint8_t(uint8_t, uint8_t)> op,
+                             bool h_flag) {
+  return [=, this] {
+    uint8_t result = op(af.get_hi(), src());
+    af.set_hi(result);
+
+    setFlag(kFlagOffZ, result == 0);
+    setFlag(kFlagOffN, false);
+    setFlag(kFlagOffH, h_flag);
+    setFlag(kFlagOffC, false);
+  };
+}
+
+Cpu::InstrFunc Cpu::step_op(getter get, setter set, bool incr) {
+  return [=, this] {
+    int8_t diff = (incr * 2) - 1;  // true => 1, false => -1
+    uint8_t a = get();
+    uint8_t result = a + diff;
+    set(result);
+
+    setFlag(kFlagOffZ, result == 0);
+    setFlag(kFlagOffN, 1 - incr);
+    setFlag(kFlagOffH, (((a & 0xf) + 1) & 0x10) == 0x10);
+  };
+}
+
+Cpu::InstrFunc Cpu::cpl() {
+  return [=, this] {
+    uint8_t a = af.get_hi();
+    uint8_t result = a ^ 0xFF;
+    af.set_hi(result);
+
+    setFlag(kFlagOffN, true);
+    setFlag(kFlagOffH, true);
+  };
+}
