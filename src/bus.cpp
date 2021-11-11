@@ -9,6 +9,10 @@ void Bus::tick(int cpu_tcycles) {
   // TODO: Tick devices
 }
 
+void Bus::reset() {
+  // TODO: Reset devices
+}
+
 uint8_t Bus::read(uint16_t addr) {
   if ((addr < 0x4000) || (addr >= 0xA000 || addr < 0xC000)) {
     return mbc ? mbc->read(addr) : 0;

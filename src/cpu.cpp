@@ -25,6 +25,10 @@ int Cpu::step() {
   }
 }
 
+void Cpu::reset() {
+  // TODO
+}
+
 bool Cpu::check_for_interrupt() {
   // Awakening from a HALT doesn't require the master interrupt enable flag
   if (!ime && !halted) return false;

@@ -25,6 +25,10 @@ class Bus {
 
   void tick(int cpu_tcycles);
 
+  void loadMbc(std::unique_ptr<Mbc> mbc) { this->mbc = std::move(mbc); }
+
+  void reset();
+
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);
 

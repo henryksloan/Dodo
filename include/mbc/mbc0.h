@@ -3,9 +3,15 @@
 
 #include <array>
 #include <cstdint>
+#include <vector>
+
+#include "mbc.h"
 
 // An abstract "Memory Bus Controller" - dispatches accesses to cartridge memory
-class Mbc0 {
+class Mbc0 : public Mbc {
+ public:
+  Mbc0(const std::vector<uint8_t> &data);
+
  private:
   std::array<uint8_t, 0x8000> rom;
   std::array<uint8_t, 0x2000> ram;
