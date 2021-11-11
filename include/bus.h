@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <memory>
 
+#include "mbc/mbc.h"
+
 const size_t kWramSize = 0x8000;
 const size_t kHramSize = 0x7E;
 const size_t kVramSize = 0x4000;
@@ -22,6 +24,10 @@ class Bus {
   Bus() : wram(), hram(), vram(), oam() {}
 
   void tick(int cpu_tcycles);
+
+  void loadMbc(std::unique_ptr<Mbc> mbc) { this->mbc = std::move(mbc); }
+
+  void reset();
 
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);
@@ -50,7 +56,10 @@ class Bus {
   std::shared_ptr<std::array<uint8_t, kVramSize>> vram;
   std::shared_ptr<std::array<uint8_t, kOamSize>> oam;
 
-  uint8_t int_enable, int_request;  // $FFFF IE and $FF0F IF
+  std::unique_ptr<Mbc> mbc;
+
+  uint8_t int_enable,
+      int_request;  // $FFFF IE and $FF0F IF
   bool double_speed, prepare_speed_switch;
   bool cgb_mode;
 
