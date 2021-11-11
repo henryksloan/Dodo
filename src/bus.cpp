@@ -8,7 +8,28 @@ void Bus::tick(int cpu_tcycles) {
 }
 
 uint8_t Bus::read(uint16_t addr) {
-  // TODO
+  if ((addr < 0x4000) || (addr >= 0xA000 || addr < 0xC000)) {
+    // TODO: Cartridge
+  } else if (addr >= 0x8000 && addr < 0xA000) {
+    size_t bank = 0x2000 * (cgb_mode ? vram_bank : 0);
+    return (*vram)[bank + (addr - 0x8000)];
+  } else if (addr >= 0xC000 && addr < 0xD000) {
+    return wram[addr - 0xC000];
+  } else if (addr >= 0xD000 && addr < 0xE000) {
+    size_t bank = 0x1000 * (cgb_mode ? wram_bank : 0);
+    return wram[bank + (addr - 0xC000)];
+  } else if (addr >= 0xE000 && addr < 0xFE00) {
+    // TODO: Echo RAM
+  } else if (addr >= 0xFE00 && addr < 0xFEA0) {
+    return (*oam)[addr - 0xFE00];
+  } else if (addr >= 0xFF00 && addr < 0xFF80) {
+    // TODO: IO Registers
+  } else if (addr >= 0xFF80 && addr < 0xFFFF) {
+    return hram[addr - 0xFF80];
+  } else if (addr == 0xFFFF) {
+    return int_enable;
+  }
+
   return 0;
 }
 

@@ -48,6 +48,9 @@ class Bus {
 
   uint8_t int_enable, int_request;  // $FFFF IE and $FF0F IF
   bool double_speed;
+  bool cgb_mode;
+
+  size_t vram_bank, wram_bank;
 };
 
 #endif  // DODO_BUS_H_
