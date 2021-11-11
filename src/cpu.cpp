@@ -329,7 +329,8 @@ void Cpu::initOpcodeTables() {
   opcodes[0x00] = [] {};  // NOP
   // $76
   opcodes[0x76] = [=, this] { halted = true; };
-  // TODO: STOP ($10 followed by any byte)
+  // TODO: Should this eat the garbage byte that follows $10?
+  opcodes[0x10] = [=, this] { bus->switchSpeed(); };
   // $F3
   opcodes[0xF3] = [=, this] { ime = false; };
   // $FB

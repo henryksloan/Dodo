@@ -35,12 +35,14 @@ class Bus {
     write(addr + 1, data >> 8);
   }
 
-  uint8_t io_read(uint16_t addr);
+  uint8_t ioRead(uint16_t addr);
 
   uint8_t get_triggered_interrupts();
   void clear_interrupt(int bit_n);
 
   int progressDma();
+
+  void switchSpeed();
 
  private:
   std::array<uint8_t, kWramSize> wram;

@@ -5,6 +5,8 @@ void Bus::tick(int cpu_tcycles) {
   int dma_ticks = progressDma();
   int ppu_ticks = cpu_tcycles / cpu_multiplier + dma_ticks;
   int cpu_ticks = cpu_tcycles + dma_ticks * cpu_multiplier;
+
+  // TODO: Tick devices
 }
 
 uint8_t Bus::read(uint16_t addr) {
@@ -23,7 +25,7 @@ uint8_t Bus::read(uint16_t addr) {
   } else if (addr >= 0xFE00 && addr < 0xFEA0) {
     return (*oam)[addr - 0xFE00];
   } else if (addr >= 0xFF00 && addr < 0xFF80) {
-    return io_read(addr);
+    return ioRead(addr);
   } else if (addr >= 0xFF80 && addr < 0xFFFF) {
     return hram[addr - 0xFF80];
   } else if (addr == 0xFFFF) {
@@ -37,7 +39,7 @@ void Bus::write(uint16_t addr, uint8_t data) {
   // TODO
 }
 
-uint8_t Bus::io_read(uint16_t addr) {
+uint8_t Bus::ioRead(uint16_t addr) {
   // TODO: FF56 - Infrared
   // TODO: FF6C - Object priority
   if (addr == 0xFF00) {
@@ -80,4 +82,11 @@ void Bus::clear_interrupt(int bit_n) { int_request &= !(1 << bit_n); }
 int Bus::progressDma() {
   // TODO: Progress any active DMA
   return 0;
+}
+
+void Bus::switchSpeed() {
+  if (prepare_speed_switch) {
+    double_speed = !double_speed;
+    prepare_speed_switch = false;
+  }
 }
