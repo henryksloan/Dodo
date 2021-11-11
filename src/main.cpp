@@ -17,5 +17,7 @@ int main(int argc, char **argv) {
     std::cerr << *error_msg << std::endl;
   }
 
+  gameboy.step();
+
   return 0;
 }

@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "mbc/mbc.h"
+#include "timer.h"
 
 const size_t kWramSize = 0x8000;
 const size_t kHramSize = 0x7E;
@@ -21,7 +22,7 @@ const int kIntOffJoypad = 4;
 
 class Bus {
  public:
-  Bus() : wram(), hram(), vram(), oam() {}
+  Bus() : wram(), hram(), vram(), oam(), timer() {}
 
   void tick(int cpu_tcycles);
 
@@ -42,6 +43,7 @@ class Bus {
   }
 
   uint8_t ioRead(uint16_t addr);
+  void ioWrite(uint16_t addr, uint8_t data);
 
   uint8_t get_triggered_interrupts();
   void clear_interrupt(int bit_n);
@@ -58,8 +60,9 @@ class Bus {
 
   std::unique_ptr<Mbc> mbc;
 
-  uint8_t int_enable,
-      int_request;  // $FFFF IE and $FF0F IF
+  Timer timer;
+
+  uint8_t int_enable, int_request;  // $FFFF IE and $FF0F IF
   bool double_speed, prepare_speed_switch;
   bool cgb_mode;
 

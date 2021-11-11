@@ -10,6 +10,7 @@ set(SOURCES
     src/bus.cpp
     src/cpu.cpp
     src/gameboy.cpp
+    src/timer.cpp
     src/mbc/mbc0.cpp
     src/main.cpp
 )
