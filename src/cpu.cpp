@@ -4,7 +4,10 @@
 #include <tuple>
 #include <vector>
 
-Cpu::Cpu(std::shared_ptr<Bus> bus) : bus(bus) { initOpcodeTables(); }
+Cpu::Cpu(std::shared_ptr<Bus> bus) : bus(bus) {
+  initOpcodeTables();
+  reset();
+}
 
 int Cpu::step() {
   if (check_for_interrupt()) {
@@ -26,7 +29,14 @@ int Cpu::step() {
 }
 
 void Cpu::reset() {
-  // TODO
+  // https://gbdev.io/pandocs/Power_Up_Sequence.html
+  // TODO: possibly address edge cases
+  af.set(0x01B0);
+  bc.set(0x0013);
+  de.set(0x00D8);
+  hl.set(0x014D);
+  pc.set(0x0100);
+  sp.set(0xFFFE);
 }
 
 bool Cpu::check_for_interrupt() {
