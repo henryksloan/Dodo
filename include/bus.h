@@ -21,6 +21,8 @@ class Bus {
  public:
   Bus() : wram(), hram(), vram(), oam() {}
 
+  void tick(int cpu_tcycles);
+
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);
 
@@ -33,8 +35,14 @@ class Bus {
     write(addr + 1, data >> 8);
   }
 
+  uint8_t ioRead(uint16_t addr);
+
   uint8_t get_triggered_interrupts();
   void clear_interrupt(int bit_n);
+
+  int progressDma();
+
+  void switchSpeed();
 
  private:
   std::array<uint8_t, kWramSize> wram;
@@ -43,6 +51,14 @@ class Bus {
   std::shared_ptr<std::array<uint8_t, kOamSize>> oam;
 
   uint8_t int_enable, int_request;  // $FFFF IE and $FF0F IF
+  bool double_speed, prepare_speed_switch;
+  bool cgb_mode;
+
+  size_t vram_bank, wram_bank;
+
+  enum class HdmaMode { kHdmaNone, kHdmaGeneral, kHdmaHBlank } hdma_mode;
+  size_t hdma_src_dst[4];
+  size_t hdma_len;
 };
 
 #endif  // DODO_BUS_H_
