@@ -102,7 +102,48 @@ uint8_t Bus::ioRead(uint16_t addr) {
 }
 
 void Bus::ioWrite(uint16_t addr, uint8_t data) {
-  // TODO
+  if (addr == 0xFF00) {
+    // TODO: Controller
+  } else if (addr == 0xFF01 || addr == 0xFF02) {
+    // TODO: Communication
+  } else if (addr >= 0xFF04 && addr <= 0xFF07) {
+    timer.write(addr, data);
+  } else if (addr == 0xFF0F) {
+    int_request = data;
+  } else if (addr >= 0xFF10 && addr <= 0xFF26) {
+    // TODO: Sound
+  } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
+    // TODO :Waveform RAM
+  } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
+    // TODO: LCD
+  } else if (addr == 0xFF4D) {
+    prepare_speed_switch = data & 1;
+  } else if (addr == 0xFF4F) {
+    vram_bank = data & 1;
+  } else if (addr == 0xFF50) {
+    // TODO: Set to non-zero to disable boot ROM
+  } else if (addr >= 0xFF51 && addr <= 0xFF54) {
+    // Bits 4-16 of src are respected, and bits 4-12 of dst
+    static const uint8_t mask[4] = {0xFF, 0xF0, 0x1F, 0xF0};
+    hdma_src_dst[addr - 0xFF51] = data & mask[addr - 0xFF51];
+  } else if (addr == 0xFF55) {
+    hdma_len = data & ~(1 << 7);
+    hdma_src = (((uint16_t)hdma_src_dst[0]) << 8) | hdma_src_dst[1];
+    hdma_dst = 0x8000 | (((uint16_t)hdma_src_dst[2]) << 8) | hdma_src_dst[3];
+    // TODO: Validate source
+
+    bool bit_7 = data >> 7;
+    if (hdma_mode != HdmaMode::kHdmaNone && !bit_7) {
+      // Writing zero to bit 7 can cancel a transfer
+      hdma_mode = HdmaMode::kHdmaNone;
+    } else {
+      hdma_mode = bit_7 ? HdmaMode::kHdmaHBlank : HdmaMode::kHdmaGeneral;
+    }
+  } else if (addr == 0xFF68 || addr == 0xFF69) {
+    // TODO: BG/OBJ Palettes
+  } else if (addr == 0xFF70) {
+    wram_bank = data & 0b111;
+  }
 }
 
 uint8_t Bus::get_triggered_interrupts() { return int_enable & int_request; }

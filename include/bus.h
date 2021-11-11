@@ -68,9 +68,10 @@ class Bus {
 
   size_t vram_bank, wram_bank;
 
-  enum class HdmaMode { kHdmaNone, kHdmaGeneral, kHdmaHBlank } hdma_mode;
-  size_t hdma_src_dst[4];
+  enum HdmaMode { kHdmaNone, kHdmaGeneral, kHdmaHBlank } hdma_mode;
+  size_t hdma_src_dst[4];  // The temporary registers, not the active transfer
   size_t hdma_len;
+  uint16_t hdma_src, hdma_dst;
 };
 
 #endif  // DODO_BUS_H_
