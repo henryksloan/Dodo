@@ -7,6 +7,8 @@ void Bus::tick(int cpu_tcycles) {
   int cpu_ticks = cpu_tcycles + dma_ticks * cpu_multiplier;
 
   // TODO: Tick devices
+  bool timer_interrupt = timer.tick(cpu_ticks);
+  int_request |= timer_interrupt << kIntOffTimer;
 }
 
 void Bus::reset() {
@@ -71,7 +73,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr == 0xFF01 || addr == 0xFF02) {
     // TODO: Communication
   } else if (addr >= 0xFF04 && addr <= 0xFF07) {
-    // TODO: Divider and Timer
+    return timer.read(addr);
   } else if (addr == 0xFF0F) {
     return int_request;
   } else if (addr >= 0xFF10 && addr <= 0xFF26) {
