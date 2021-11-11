@@ -7,12 +7,11 @@
 #include <memory>
 
 #include "mbc/mbc.h"
+#include "ppu.h"
 #include "timer.h"
 
 const size_t kWramSize = 0x8000;
 const size_t kHramSize = 0x7E;
-const size_t kVramSize = 0x4000;
-const size_t kOamSize = 0x4000;
 
 const int kIntOffVBlank = 0;
 const int kIntOffStat = 1;
@@ -22,7 +21,7 @@ const int kIntOffJoypad = 4;
 
 class Bus {
  public:
-  Bus() : wram(), hram(), vram(), oam(), timer() {}
+  Bus() : wram(), hram(), vram(), oam(), timer(), ppu(vram, oam) {}
 
   void tick(int cpu_tcycles);
 
@@ -60,6 +59,7 @@ class Bus {
 
   std::unique_ptr<Mbc> mbc;
 
+  Ppu ppu;
   Timer timer;
 
   uint8_t int_enable, int_request;  // $FFFF IE and $FF0F IF

@@ -66,6 +66,7 @@ void Bus::write(uint16_t addr, uint8_t data) {
 }
 
 uint8_t Bus::ioRead(uint16_t addr) {
+  // TODO: Limit some to CGB mode
   // TODO: FF56 - Infrared
   // TODO: FF6C - Object priority
   if (addr == 0xFF00) {
@@ -81,7 +82,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
     // TODO :Waveform RAM
   } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
-    // TODO: LCD
+    ppu.read(addr);
   } else if (addr == 0xFF4D) {
     return (double_speed << 7) | prepare_speed_switch;
   } else if (addr == 0xFF4F) {
@@ -92,7 +93,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
     return hdma_src_dst[addr - 0xFF51];
   } else if (addr == 0xFF55) {
     return ((hdma_mode != HdmaMode::kHdmaNone) << 7) | hdma_len;
-  } else if (addr == 0xFF68 || addr == 0xFF69) {
+  } else if (addr >= 0xFF68 && addr <= 0xFF6B) {
     // TODO: BG/OBJ Palettes
   } else if (addr == 0xFF70) {
     return wram_bank;
@@ -102,6 +103,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
 }
 
 void Bus::ioWrite(uint16_t addr, uint8_t data) {
+  // TODO: Limit some to CGB mode
   if (addr == 0xFF00) {
     // TODO: Controller
   } else if (addr == 0xFF01 || addr == 0xFF02) {
@@ -114,8 +116,10 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
     // TODO: Sound
   } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
     // TODO :Waveform RAM
+  } else if (addr == 0xFF46) {
+    // TODO: OAMDMA
   } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
-    // TODO: LCD
+    ppu.write(addr, data);
   } else if (addr == 0xFF4D) {
     prepare_speed_switch = data & 1;
   } else if (addr == 0xFF4F) {
@@ -139,7 +143,7 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
     } else {
       hdma_mode = bit_7 ? HdmaMode::kHdmaHBlank : HdmaMode::kHdmaGeneral;
     }
-  } else if (addr == 0xFF68 || addr == 0xFF69) {
+  } else if (addr >= 0xFF68 && addr <= 0xFF6B) {
     // TODO: BG/OBJ Palettes
   } else if (addr == 0xFF70) {
     wram_bank = data & 0b111;

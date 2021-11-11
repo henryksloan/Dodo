@@ -11,6 +11,7 @@ set(SOURCES
     src/cpu.cpp
     src/gameboy.cpp
     src/timer.cpp
+    src/ppu.cpp
     src/mbc/mbc0.cpp
     src/main.cpp
 )
