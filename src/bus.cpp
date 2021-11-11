@@ -11,7 +11,7 @@ void Bus::tick(int cpu_tcycles) {
 
 uint8_t Bus::read(uint16_t addr) {
   if ((addr < 0x4000) || (addr >= 0xA000 || addr < 0xC000)) {
-    // TODO: Cartridge
+    return mbc ? mbc->read(addr) : 0;
   } else if (addr >= 0x8000 && addr < 0xA000) {
     size_t bank = 0x2000 * (cgb_mode ? vram_bank : 0);
     return (*vram)[bank + (addr - 0x8000)];
