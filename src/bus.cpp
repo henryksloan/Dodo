@@ -23,7 +23,7 @@ uint8_t Bus::read(uint16_t addr) {
   } else if (addr >= 0xFE00 && addr < 0xFEA0) {
     return (*oam)[addr - 0xFE00];
   } else if (addr >= 0xFF00 && addr < 0xFF80) {
-    // TODO: IO Registers
+    return io_read(addr);
   } else if (addr >= 0xFF80 && addr < 0xFFFF) {
     return hram[addr - 0xFF80];
   } else if (addr == 0xFFFF) {
@@ -35,6 +35,42 @@ uint8_t Bus::read(uint16_t addr) {
 
 void Bus::write(uint16_t addr, uint8_t data) {
   // TODO
+}
+
+uint8_t Bus::io_read(uint16_t addr) {
+  // TODO: FF56 - Infrared
+  // TODO: FF6C - Object priority
+  if (addr == 0xFF00) {
+    // TODO: Controller
+  } else if (addr == 0xFF01 || addr == 0xFF02) {
+    // TODO: Communication
+  } else if (addr >= 0xFF04 && addr <= 0xFF07) {
+    // TODO: Divider and Timer
+  } else if (addr == 0xFF0F) {
+    return int_request;
+  } else if (addr >= 0xFF10 && addr <= 0xFF26) {
+    // TODO: Sound
+  } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
+    // TODO :Waveform RAM
+  } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
+    // TODO: LCD
+  } else if (addr == 0xFF4D) {
+    return (double_speed << 7) | prepare_speed_switch;
+  } else if (addr == 0xFF4F) {
+    return vram_bank;
+  } else if (addr == 0xFF50) {
+    // TODO: Set to non-zero to disable boot ROM
+  } else if (addr >= 0xFF51 && addr <= 0xFF54) {
+    return hdma_src_dst[addr - 0xFF51];
+  } else if (addr == 0xFF55) {
+    return ((hdma_mode != HdmaMode::kHdmaNone) << 7) | hdma_len;
+  } else if (addr == 0xFF68 || addr == 0xFF69) {
+    // TODO: BG/OBJ Palettes
+  } else if (addr == 0xFF70) {
+    return wram_bank;
+  }
+
+  return 0;
 }
 
 uint8_t Bus::get_triggered_interrupts() { return int_enable & int_request; }
