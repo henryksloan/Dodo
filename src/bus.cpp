@@ -40,7 +40,27 @@ uint8_t Bus::read(uint16_t addr) {
 }
 
 void Bus::write(uint16_t addr, uint8_t data) {
-  // TODO
+  if ((addr < 0x4000) || (addr >= 0xA000 || addr < 0xC000)) {
+    if (mbc) mbc->write(addr, data);
+  } else if (addr >= 0x8000 && addr < 0xA000) {
+    size_t bank = 0x2000 * (cgb_mode ? vram_bank : 0);
+    (*vram)[bank + (addr - 0x8000)] = data;
+  } else if (addr >= 0xC000 && addr < 0xD000) {
+    wram[addr - 0xC000] = data;
+  } else if (addr >= 0xD000 && addr < 0xE000) {
+    size_t bank = 0x1000 * (cgb_mode ? wram_bank : 0);
+    wram[bank + (addr - 0xC000)] = data;
+  } else if (addr >= 0xE000 && addr < 0xFE00) {
+    // TODO: Echo RAM
+  } else if (addr >= 0xFE00 && addr < 0xFEA0) {
+    (*oam)[addr - 0xFE00] = data;
+  } else if (addr >= 0xFF00 && addr < 0xFF80) {
+    ioWrite(addr, data);
+  } else if (addr >= 0xFF80 && addr < 0xFFFF) {
+    hram[addr - 0xFF80] = data;
+  } else if (addr == 0xFFFF) {
+    int_enable = data;
+  }
 }
 
 uint8_t Bus::ioRead(uint16_t addr) {
@@ -77,6 +97,10 @@ uint8_t Bus::ioRead(uint16_t addr) {
   }
 
   return 0;
+}
+
+void Bus::ioWrite(uint16_t addr, uint8_t data) {
+  // TODO
 }
 
 uint8_t Bus::get_triggered_interrupts() { return int_enable & int_request; }

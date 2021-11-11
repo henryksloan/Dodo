@@ -42,6 +42,7 @@ class Bus {
   }
 
   uint8_t ioRead(uint16_t addr);
+  void ioWrite(uint16_t addr, uint8_t data);
 
   uint8_t get_triggered_interrupts();
   void clear_interrupt(int bit_n);
