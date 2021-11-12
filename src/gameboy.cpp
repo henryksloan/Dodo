@@ -32,7 +32,9 @@ std::optional<std::string> Gameboy::loadCartridge(std::string filename) {
 
   // Try to make an MBC of the correct type, otherwise return a string error
   uint8_t mbc_type = data[0x147];
-  auto mbc_result = makeMbc(mbc_type, data);
+  const size_t ram_sizes[6] = {0, 0, 0x2000, 0x8000, 0x20000, 0x10000};
+  size_t ram_size = ram_sizes[data[0x149]];
+  auto mbc_result = makeMbc(mbc_type, ram_size, data);
   if (std::holds_alternative<std::unique_ptr<Mbc>>(mbc_result)) {
     bus->loadMbc(std::move(std::get<0>(mbc_result)));
   } else {
@@ -46,12 +48,14 @@ std::optional<std::string> Gameboy::loadCartridge(std::string filename) {
 }
 
 std::variant<std::unique_ptr<Mbc>, std::string> Gameboy::makeMbc(
-    uint8_t type, const std::vector<uint8_t> &data) {
+    uint8_t type, size_t ram_size, const std::vector<uint8_t> &data) {
   switch (type) {
     case 0x00:
-      return std::make_unique<Mbc0>(data);
+      return std::make_unique<Mbc0>(data, ram_size);
       break;
     case 0x01:
+      return std::make_unique<Mbc1>(data, ram_size);
+      break;
     case 0x02:
     case 0x03:
     case 0x05:

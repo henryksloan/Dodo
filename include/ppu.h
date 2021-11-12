@@ -28,6 +28,8 @@ class Ppu {
   bool getVramBank() { return vram_bank; }
   void setVramBank(bool vram_bank) { this->vram_bank = vram_bank; }
 
+  std::array<std::array<uint16_t, 160>, 144> frameTest();
+
  private:
   std::array<uint8_t, kVramSize> vram;
   std::array<uint8_t, kOamSize> oam;

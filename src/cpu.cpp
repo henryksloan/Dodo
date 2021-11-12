@@ -1,5 +1,6 @@
 #include "cpu.h"
 
+#include <iomanip>
 #include <iostream>
 #include <tuple>
 #include <vector>
@@ -18,7 +19,23 @@ int Cpu::step() {
     return 1;
   }
 
+  if (bus->read(0xFF02) == 0x81) {
+    char c = bus->read(0xFF01);
+    std::cout << c;
+    bus->write(0xFF02, 0);
+  }
+
   uint8_t opcode = bus->read(pc.get());
+  // std::cout << std::hex << std::setfill('0') << std::setw(4) << (int)pc.get()
+  //           << ": " << std::setw(2) << (int)opcode << std::setw(4)
+  //           << " AF:" << std::setfill('0') << std::setw(4) << (int)af.get()
+  //           << " BC:" << std::setfill('0') << std::setw(4) << (int)bc.get()
+  //           << " DE:" << std::setfill('0') << std::setw(4) << (int)de.get()
+  //           << " HL:" << std::setfill('0') << std::setw(4) << (int)hl.get()
+  //           << " SP:" << std::setfill('0') << std::setw(4) << (int)sp.get()
+  //           << " num:" << std::setfill('0') << std::setw(4)
+  //           << (int)bus->read16(0xD800) << " " << std::setfill('0')
+  //           << std::setw(4) << (int)bus->read16(0xD802) << '\n';
   pc.set(pc.get() + 1);
   if (opcode == 0xCB) {
     return execute_cb();
@@ -71,7 +88,15 @@ void Cpu::initOpcodeTables() {
         [&] { return reg.get_lo(); }, [&](uint8_t val) { reg.set_lo(val); });
   };
 
-  const auto [get_af, set_af, get_a, set_a, get_f, set_f] = get_set(af);
+  const auto get_a = [&] { return af.get_hi(); };
+  const auto get_f = [&] { return af.get_lo() & 0xF0; };
+  const auto set_a = [&](uint8_t val) { af.set_hi(val); };
+  const auto set_f = [&](uint8_t val) { af.set_lo(val & 0xF0); };
+  const auto get_af = [&] { return af.get(); };
+  const auto set_af = [&](uint16_t val) {
+    af.set_hi(val >> 8);
+    af.set_lo(val & 0xF0);
+  };
   const auto [get_bc, set_bc, get_b, set_b, get_c, set_c] = get_set(bc);
   const auto [get_de, set_de, get_d, set_d, get_e, set_e] = get_set(de);
   const auto [get_hl, set_hl, get_h, set_h, get_l, set_l] = get_set(hl);
@@ -212,8 +237,8 @@ void Cpu::initOpcodeTables() {
   const auto push_regs = getters16{get_bc, get_de, get_hl, get_af};
   const auto pop_regs = setters16{set_bc, set_de, set_hl, set_af};
   for (int i = 0xC; i <= 0xF; i++) {
-    opcodes[(i * 0x10) | 0x1] = push(push_regs[i - 0xC]);
-    opcodes[(i * 0x10) | 0x5] = pop(pop_regs[i - 0xC]);
+    opcodes[(i * 0x10) | 0x1] = pop(pop_regs[i - 0xC]);
+    opcodes[(i * 0x10) | 0x5] = push(push_regs[i - 0xC]);
   }
 
   // $F8, $F9
@@ -354,18 +379,18 @@ void Cpu::initOpcodeTables() {
   // TODO: Verify that this does the proper little-endian addressing
   const auto get_a16 = d16;
   // $C3, $E9, ${C,D}{2,A}
-  opcodes[0xC3] = jump(get_a16, false);
-  opcodes[0xE9] = jump(get_hl, false);
-  opcodes[0xC2] = jump(get_a16, false, kFlagOffZ, true);
-  opcodes[0xD2] = jump(get_a16, false, kFlagOffC, true);
-  opcodes[0xCA] = jump(get_a16, false, kFlagOffZ, false);
-  opcodes[0xDA] = jump(get_a16, false, kFlagOffC, false);
+  opcodes[0xC3] = jump(get_a16);
+  opcodes[0xE9] = jump(get_hl);
+  opcodes[0xC2] = jump(get_a16, kFlagOffZ, true);
+  opcodes[0xD2] = jump(get_a16, kFlagOffC, true);
+  opcodes[0xCA] = jump(get_a16, kFlagOffZ, false);
+  opcodes[0xDA] = jump(get_a16, kFlagOffC, false);
   // $18, $20, $30, $28, $38
-  opcodes[0x18] = jump(d8, true);
-  opcodes[0x20] = jump(d8, true, kFlagOffZ, true);
-  opcodes[0x30] = jump(d8, true, kFlagOffC, true);
-  opcodes[0x28] = jump(d8, true, kFlagOffZ, false);
-  opcodes[0x38] = jump(d8, true, kFlagOffC, false);
+  opcodes[0x18] = jump_relative(d8);
+  opcodes[0x20] = jump_relative(d8, kFlagOffZ, true);
+  opcodes[0x30] = jump_relative(d8, kFlagOffC, true);
+  opcodes[0x28] = jump_relative(d8, kFlagOffZ, false);
+  opcodes[0x38] = jump_relative(d8, kFlagOffC, false);
   // $CD, $C4, $D4, $CC, $DC
   opcodes[0xCD] = call(get_a16);
   opcodes[0xC4] = call(get_a16, kFlagOffZ, true);
@@ -474,9 +499,13 @@ Cpu::InstrFunc Cpu::daa() {
     uint8_t correction = 0;
     if (getFlag(kFlagOffH) || (!getFlag(kFlagOffN) && (a & 0xf) > 9)) {
       correction |= 0x6;
+    }
+    if (getFlag(kFlagOffC) || (!getFlag(kFlagOffN) && a > 0x99)) {
+      correction |= 0x60;
       new_carry = true;
     }
     a += getFlag(kFlagOffN) ? -correction : correction;
+    af.set_hi(a);
 
     setFlag(kFlagOffZ, a == 0);
     setFlag(kFlagOffH, false);
@@ -673,17 +702,22 @@ int Cpu::execute_cb() {
   return cb_opcodes_mcycles[cb_opcode];
 }
 
-Cpu::InstrFunc Cpu::jump(getter16 src, bool relative,
-                         int condition_off /* = 0 */,
+Cpu::InstrFunc Cpu::jump(getter16 src, int condition_off /* = 0 */,
                          bool negate_condition /* = false */) {
   return [=, this] {
+    uint16_t addr = src();
     if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
-      if (relative) {
-        int8_t off = src();
-        pc.set(pc.get() + off);
-      } else {
-        pc.set(src());
-      }
+      pc.set(addr);
+    }
+  };
+}
+
+Cpu::InstrFunc Cpu::jump_relative(getter src, int condition_off /* = 0 */,
+                                  bool negate_condition /* = false */) {
+  return [=, this] {
+    int8_t off = src();
+    if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
+      pc.set(pc.get() + off);
     }
   };
 }
@@ -691,10 +725,11 @@ Cpu::InstrFunc Cpu::jump(getter16 src, bool relative,
 Cpu::InstrFunc Cpu::call(getter16 src, int condition_off /* = 0 */,
                          bool negate_condition /* = false */) {
   return [=, this] {
+    uint16_t addr = src();
     if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
       sp.set(sp.get() - 2);
       bus->write16(sp.get(), pc.get());
-      pc.set(src());
+      pc.set(addr);
     }
   };
 }

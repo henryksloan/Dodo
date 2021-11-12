@@ -51,9 +51,14 @@ class Bus {
 
   void switchSpeed();
 
+  std::array<std::array<uint16_t, 160>, 144> frameTest() {
+    return ppu.frameTest();
+  }
+
  private:
   std::array<uint8_t, kWramSize> wram;
   std::array<uint8_t, kHramSize> hram;
+  uint8_t serial_temp[2];
 
   std::unique_ptr<Mbc> mbc;
 

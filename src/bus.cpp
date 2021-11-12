@@ -16,7 +16,7 @@ void Bus::reset() {
 }
 
 uint8_t Bus::read(uint16_t addr) {
-  if ((addr < 0x4000) || (addr >= 0xA000 || addr < 0xC000)) {
+  if ((addr < 0x8000) || (addr >= 0xA000 && addr < 0xC000)) {
     return mbc ? mbc->read(addr) : 0;
   } else if (addr >= 0x8000 && addr < 0xA000) {
     return ppu.readVram(addr);
@@ -41,7 +41,7 @@ uint8_t Bus::read(uint16_t addr) {
 }
 
 void Bus::write(uint16_t addr, uint8_t data) {
-  if ((addr < 0x4000) || (addr >= 0xA000 || addr < 0xC000)) {
+  if ((addr < 0x4000) || (addr >= 0xA000 && addr < 0xC000)) {
     if (mbc) mbc->write(addr, data);
   } else if (addr >= 0x8000 && addr < 0xA000) {
     ppu.writeVram(addr, data);
@@ -71,6 +71,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
     // TODO: Controller
   } else if (addr == 0xFF01 || addr == 0xFF02) {
     // TODO: Communication
+    return serial_temp[addr - 0xFF01];
   } else if (addr >= 0xFF04 && addr <= 0xFF07) {
     return timer.read(addr);
   } else if (addr == 0xFF0F) {
@@ -106,6 +107,7 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
     // TODO: Controller
   } else if (addr == 0xFF01 || addr == 0xFF02) {
     // TODO: Communication
+    serial_temp[addr - 0xFF01] = data;
   } else if (addr >= 0xFF04 && addr <= 0xFF07) {
     timer.write(addr, data);
   } else if (addr == 0xFF0F) {
