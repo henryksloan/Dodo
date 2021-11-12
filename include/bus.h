@@ -21,7 +21,7 @@ const int kIntOffJoypad = 4;
 
 class Bus {
  public:
-  Bus() : wram(), hram(), vram(), oam(), timer(), ppu(vram, oam) {}
+  Bus() : wram(), hram(), ppu(), timer() {}
 
   void tick(int cpu_tcycles);
 
@@ -54,8 +54,6 @@ class Bus {
  private:
   std::array<uint8_t, kWramSize> wram;
   std::array<uint8_t, kHramSize> hram;
-  std::shared_ptr<std::array<uint8_t, kVramSize>> vram;
-  std::shared_ptr<std::array<uint8_t, kOamSize>> oam;
 
   std::unique_ptr<Mbc> mbc;
 
@@ -66,7 +64,7 @@ class Bus {
   bool double_speed, prepare_speed_switch;
   bool cgb_mode;
 
-  size_t vram_bank, wram_bank;
+  size_t wram_bank;
 
   enum HdmaMode { kHdmaNone, kHdmaGeneral, kHdmaHBlank } hdma_mode;
   size_t hdma_src_dst[4];  // The temporary registers, not the active transfer

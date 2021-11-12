@@ -19,8 +19,7 @@ uint8_t Bus::read(uint16_t addr) {
   if ((addr < 0x4000) || (addr >= 0xA000 || addr < 0xC000)) {
     return mbc ? mbc->read(addr) : 0;
   } else if (addr >= 0x8000 && addr < 0xA000) {
-    size_t bank = 0x2000 * (cgb_mode ? vram_bank : 0);
-    return (*vram)[bank + (addr - 0x8000)];
+    return ppu.readVram(addr);
   } else if (addr >= 0xC000 && addr < 0xD000) {
     return wram[addr - 0xC000];
   } else if (addr >= 0xD000 && addr < 0xE000) {
@@ -29,7 +28,7 @@ uint8_t Bus::read(uint16_t addr) {
   } else if (addr >= 0xE000 && addr < 0xFE00) {
     // TODO: Echo RAM
   } else if (addr >= 0xFE00 && addr < 0xFEA0) {
-    return (*oam)[addr - 0xFE00];
+    ppu.readOam(addr);
   } else if (addr >= 0xFF00 && addr < 0xFF80) {
     return ioRead(addr);
   } else if (addr >= 0xFF80 && addr < 0xFFFF) {
@@ -45,8 +44,7 @@ void Bus::write(uint16_t addr, uint8_t data) {
   if ((addr < 0x4000) || (addr >= 0xA000 || addr < 0xC000)) {
     if (mbc) mbc->write(addr, data);
   } else if (addr >= 0x8000 && addr < 0xA000) {
-    size_t bank = 0x2000 * (cgb_mode ? vram_bank : 0);
-    (*vram)[bank + (addr - 0x8000)] = data;
+    ppu.writeVram(addr, data);
   } else if (addr >= 0xC000 && addr < 0xD000) {
     wram[addr - 0xC000] = data;
   } else if (addr >= 0xD000 && addr < 0xE000) {
@@ -55,7 +53,7 @@ void Bus::write(uint16_t addr, uint8_t data) {
   } else if (addr >= 0xE000 && addr < 0xFE00) {
     // TODO: Echo RAM
   } else if (addr >= 0xFE00 && addr < 0xFEA0) {
-    (*oam)[addr - 0xFE00] = data;
+    ppu.writeOam(addr, data);
   } else if (addr >= 0xFF00 && addr < 0xFF80) {
     ioWrite(addr, data);
   } else if (addr >= 0xFF80 && addr < 0xFFFF) {
@@ -86,7 +84,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr == 0xFF4D) {
     return (double_speed << 7) | prepare_speed_switch;
   } else if (addr == 0xFF4F) {
-    return vram_bank;
+    return ppu.getVramBank();
   } else if (addr == 0xFF50) {
     // TODO: Set to non-zero to disable boot ROM
   } else if (addr >= 0xFF51 && addr <= 0xFF54) {
@@ -123,7 +121,7 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
   } else if (addr == 0xFF4D) {
     prepare_speed_switch = data & 1;
   } else if (addr == 0xFF4F) {
-    vram_bank = data & 1;
+    ppu.setVramBank(data & 1);
   } else if (addr == 0xFF50) {
     // TODO: Set to non-zero to disable boot ROM
   } else if (addr >= 0xFF51 && addr <= 0xFF54) {
