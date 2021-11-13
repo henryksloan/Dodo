@@ -33,9 +33,7 @@ int Cpu::step() {
   //           << " DE:" << std::setfill('0') << std::setw(4) << (int)de.get()
   //           << " HL:" << std::setfill('0') << std::setw(4) << (int)hl.get()
   //           << " SP:" << std::setfill('0') << std::setw(4) << (int)sp.get()
-  //           << " num:" << std::setfill('0') << std::setw(4)
-  //           << (int)bus->read16(0xD800) << " " << std::setfill('0')
-  //           << std::setw(4) << (int)bus->read16(0xD802) << '\n';
+  //           << '\n';
   pc.set(pc.get() + 1);
   if (opcode == 0xCB) {
     return execute_cb();
@@ -63,8 +61,12 @@ bool Cpu::check_for_interrupt() {
   uint8_t triggered = bus->get_triggered_interrupts();
   if (triggered == 0) return false;
 
+  halted = false;
+  if (ime == false) return false;
+  ime = false;
+
   int bit_n;  // The bit index of first one
-  for (bit_n = 0; bit_n < 8 && (((triggered >> bit_n) & 1) == 1); bit_n++)
+  for (bit_n = 0; bit_n < 8 && (((triggered >> bit_n) & 1) == 0); bit_n++)
     ;
   if (bit_n > 4) {
     std::cerr << "invalid interrupt number: " << bit_n << std::endl;
@@ -76,7 +78,7 @@ bool Cpu::check_for_interrupt() {
   bus->write16(sp.get(), pc.get());
   pc.set(0x0040 | (bit_n << 3));
 
-  return 4;
+  return true;
 }
 
 // https://gbdev.io/pandocs/CPU_Instruction_Set.html
@@ -143,12 +145,12 @@ void Cpu::initOpcodeTables() {
   const auto set_mem_hl_inc = [this](uint8_t val) {
     uint16_t temp = hl.get();
     hl.set(temp + 1);
-    return bus->write(temp, val);
+    bus->write(temp, val);
   };
   const auto set_mem_hl_dec = [this](uint8_t val) {
     uint16_t temp = hl.get();
     hl.set(temp - 1);
-    return bus->write(temp, val);
+    bus->write(temp, val);
   };
 
   // $02, $12, $22, $32, $0A, $1A, $2A, $3A
@@ -189,10 +191,12 @@ void Cpu::initOpcodeTables() {
   opcodes[0xF0] = ld(set_a, get_io_a8);
 
   // $E2, $F2
-  const auto get_mem_c = [this] { return bus->read(bc.get_lo()); };
-  const auto set_mem_c = [this](uint8_t val) { bus->write(bc.get_lo(), val); };
-  opcodes[0xE2] = ld(set_mem_c, get_a);
-  opcodes[0xF2] = ld(set_a, get_mem_c);
+  const auto get_io_c = [this] { return bus->read(0xFF00 + bc.get_lo()); };
+  const auto set_io_c = [this](uint8_t val) {
+    bus->write(0xFF00 + bc.get_lo(), val);
+  };
+  opcodes[0xE2] = ld(set_io_c, get_a);
+  opcodes[0xF2] = ld(set_a, get_io_c);
 
   // $EA, $FA
   // TODO: Verify that this does the proper little-endian addressing
@@ -297,8 +301,8 @@ void Cpu::initOpcodeTables() {
 
   // === 16-bit arithmetic/logic instructions ===
   // ${0,1,2,3}{3,9,B}
-  auto src_16_bit_arith = getters{get_bc, get_de, get_hl, get_sp};
-  auto dst_16_bit_arith = setters{set_bc, set_de, set_hl, set_sp};
+  auto src_16_bit_arith = getters16{get_bc, get_de, get_hl, get_sp};
+  auto dst_16_bit_arith = setters16{set_bc, set_de, set_hl, set_sp};
   for (int i = 0; i < 4; i++) {
     opcodes[(i * 0x10) | 0x3] =
         step16_op(src_16_bit_arith[i], dst_16_bit_arith[i], true);
@@ -339,13 +343,13 @@ void Cpu::initOpcodeTables() {
     auto &src = src_8_bit[lo];
     auto &dst = dst_8_bit[lo];
     for (int i = 0; i < 4; i++) {
-      cb_opcodes[((0x4 + i) * 10) | lo] = bit(src, 2 * i);
-      cb_opcodes[((0x4 + i) * 10) | (lo + 0x8)] = bit(src, 2 * i + 1);
-      cb_opcodes[((0x8 + i) * 10) | lo] = set_reset(src, dst, 2 * i, false);
-      cb_opcodes[((0x8 + i) * 10) | (lo + 0x8)] =
+      cb_opcodes[((0x4 + i) * 0x10) | lo] = bit(src, 2 * i);
+      cb_opcodes[((0x4 + i) * 0x10) | (lo + 0x8)] = bit(src, 2 * i + 1);
+      cb_opcodes[((0x8 + i) * 0x10) | lo] = set_reset(src, dst, 2 * i, false);
+      cb_opcodes[((0x8 + i) * 0x10) | (lo + 0x8)] =
           set_reset(src, dst, 2 * i + 1, false);
-      cb_opcodes[((0xC + i) * 10) | lo] = set_reset(src, dst, 2 * i, true);
-      cb_opcodes[((0xC + i) * 10) | (lo + 0x8)] =
+      cb_opcodes[((0xC + i) * 0x10) | lo] = set_reset(src, dst, 2 * i, true);
+      cb_opcodes[((0xC + i) * 0x10) | (lo + 0x8)] =
           set_reset(src, dst, 2 * i + 1, true);
     }
   }
@@ -406,8 +410,8 @@ void Cpu::initOpcodeTables() {
   opcodes[0xD8] = ret(false, kFlagOffC, false);
   // ${C,D,E,F}{7,F}
   for (int i = 0; i < 4; i++) {
-    opcodes[((0xC + i) * 10) | 0x7] = rst(0x10 * i);
-    opcodes[((0xC + i) * 10) | 0xF] = rst(0x10 * i + 0x8);
+    opcodes[((0xC + i) * 0x10) | 0x7] = rst(0x10 * i);
+    opcodes[((0xC + i) * 0x10) | 0xF] = rst(0x10 * i + 0x8);
   }
 }
 
@@ -552,7 +556,7 @@ Cpu::InstrFunc Cpu::add_sp() {
     int8_t b = bus->read(pc.get());
     pc.set(pc.get() + 1);
     uint32_t result = a + b;
-    af.set_hi(result);
+    sp.set(result);
 
     setFlag(kFlagOffZ, false);
     setFlag(kFlagOffN, false);
@@ -689,7 +693,7 @@ Cpu::InstrFunc Cpu::bit(getter src, int bit_n) {
 Cpu::InstrFunc Cpu::set_reset(getter src, setter dst, int bit_n, bool set) {
   return [=, this] {
     uint8_t a = src();
-    a &= !(1 << bit_n);
+    a &= ~(1 << bit_n);
     if (set) a |= (1 << bit_n);
     dst(a);
   };

@@ -1,8 +1,51 @@
 #include "ppu.h"
 
-bool Ppu::tick(int ppu_ticks) {
-  // TODO
-  return false;
+#include <algorithm>
+#include <iostream>
+
+uint8_t Ppu::tick(int ppu_ticks) {
+  if (((control >> 7) & 1) == 0) return 0;
+  uint8_t interrupts = 0;
+
+  while (ppu_ticks > 0) {
+    int delta_t = std::min(ppu_ticks, 80);
+    ppu_ticks -= delta_t;
+    this->ppu_tick_divider += delta_t;
+
+    // Progress a line every 456 dots
+    while (this->ppu_tick_divider >= 4 * 114) {
+      this->ppu_tick_divider -= 4 * 114;
+      this->lcd_y = (this->lcd_y + 1) % 154;
+
+      if (this->compare_interrupt && (this->lcd_y == this->lcd_y_compare)) {
+        interrupts |= kIntMaskStat;
+      }
+    }
+  }
+
+  if (this->lcd_y >= 144) {
+    // VBlank line
+    this->stat_mode = kModeVblank;
+    if (this->mode_1_interrupt && this->lcd_y == 144)
+      interrupts |= kIntMaskVblank;
+  } else {
+    // Non-VBlank line
+    if (this->ppu_tick_divider < 80) {
+      this->stat_mode = kModeOamSearch;
+      if (this->mode_2_interrupt && this->ppu_tick_divider == 0)
+        interrupts |= kIntMaskStat;
+    } else if (this->ppu_tick_divider < 80 + 172) {
+      this->stat_mode = kModeTransfer;
+      if (this->mode_3_interrupt && this->ppu_tick_divider == 80)
+        interrupts |= kIntMaskStat;
+    } else {
+      this->stat_mode = kModeHblank;
+      if (this->mode_0_interrupt && this->ppu_tick_divider == 80 + 172)
+        interrupts |= kIntMaskStat;
+    }
+  }
+
+  return interrupts;
 }
 
 uint8_t Ppu::read(uint16_t addr) {
@@ -75,25 +118,22 @@ void Ppu::write(uint16_t addr, uint8_t data) {
 
 std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
   std::array<std::array<uint16_t, 160>, 144> frame;
-  // std::array<uint16_t, 160> green;
-  // green.fill(0x0003E0);
-  // frame.fill(green);
 
   uint16_t tile_data_base = 0x8800;
   uint16_t tile_map_base = ((control >> 3) & 1) ? 0x9C00 : 0x9800;
 
-  for (int tile_row = 0; tile_row < 20; tile_row++) {
-    for (int tile_col = 0; tile_col < 18; tile_col++) {
-      uint8_t tile_index = readVram(tile_map_base + (tile_row * 18) + tile_col);
+  for (int tile_row = 0; tile_row < 18; tile_row++) {
+    for (int tile_col = 0; tile_col < 20; tile_col++) {
+      uint8_t tile_index = readVram(tile_map_base + (tile_row * 32) + tile_col);
       uint16_t tile_start = tile_data_base + tile_index * 16;
-      size_t left_x = tile_row * 8;
-      size_t top_y = tile_col * 8;
+      size_t top_y = tile_row * 8;
+      size_t left_x = tile_col * 8;
       for (int line_n = 0; line_n < 8; line_n++) {
         uint8_t least_sig_bits = readVram(tile_start + line_n * 2);
         uint8_t most_sig_bits = readVram(tile_start + line_n * 2 + 1);
         for (int pixel = 0; pixel < 8; pixel++) {
-          uint8_t color_i = (((most_sig_bits >> pixel) & 1) << 1) |
-                            ((least_sig_bits >> pixel) & 1);
+          uint8_t color_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+                            ((least_sig_bits >> (7 - pixel)) & 1);
           // TODO: Check BGP
           const uint16_t colors[4] = {0x7FFF, 0x6318, 0x4210, 0x0000};
           uint16_t color = colors[color_i];

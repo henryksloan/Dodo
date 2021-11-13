@@ -1,5 +1,8 @@
 #include "bus.h"
 
+#include <iomanip>
+#include <iostream>
+
 void Bus::tick(int cpu_tcycles) {
   int cpu_multiplier = double_speed ? 2 : 1;
   int dma_ticks = progressDma();
@@ -9,6 +12,9 @@ void Bus::tick(int cpu_tcycles) {
   // TODO: Tick devices
   bool timer_interrupt = timer.tick(cpu_ticks);
   int_request |= timer_interrupt << kIntOffTimer;
+
+  uint8_t ppu_interrupts = ppu.tick(ppu_ticks);
+  int_request |= ppu_interrupts;
 }
 
 void Bus::reset() {
@@ -81,7 +87,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
     // TODO :Waveform RAM
   } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
-    ppu.read(addr);
+    return ppu.read(addr);
   } else if (addr == 0xFF4D) {
     return (double_speed << 7) | prepare_speed_switch;
   } else if (addr == 0xFF4F) {
@@ -152,7 +158,7 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
 
 uint8_t Bus::get_triggered_interrupts() { return int_enable & int_request; }
 
-void Bus::clear_interrupt(int bit_n) { int_request &= !(1 << bit_n); }
+void Bus::clear_interrupt(int bit_n) { int_request &= ~(1 << bit_n); }
 
 int Bus::progressDma() {
   // TODO: Progress any active DMA

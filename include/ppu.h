@@ -8,11 +8,14 @@
 const size_t kVramSize = 0x4000;
 const size_t kOamSize = 0xA0;
 
+const int kIntMaskVblank = 0b1;
+const int kIntMaskStat = 0b10;
+
 class Ppu {
  public:
   Ppu() : vram(), oam() {}
 
-  bool tick(int ppu_ticks);
+  uint8_t tick(int ppu_ticks);
 
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);
@@ -34,12 +37,15 @@ class Ppu {
   std::array<uint8_t, kVramSize> vram;
   std::array<uint8_t, kOamSize> oam;
 
+  int ppu_tick_divider;
+
   bool vram_bank;
 
   bool cgb_mode;
 
   uint8_t control;
-  bool compare_interrupt, mode_0_interrupt, mode_1_interrupt, mode_2_interrupt;
+  bool compare_interrupt, mode_0_interrupt, mode_1_interrupt, mode_2_interrupt,
+      mode_3_interrupt;
   enum StatMode {
     kModeHblank,
     kModeVblank,
