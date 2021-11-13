@@ -44,12 +44,16 @@ void Timer::write(uint16_t addr, uint8_t data) {
   switch (addr) {
     case 0xFF04:
       divider = 0;
+      break;
     case 0xFF05:
       counter = data;
+      break;
     case 0xFF06:
       modulo = data;
+      break;
     case 0xFF07:
       enable = data & 0b100;
       data = data & 0b11;
+      break;
   }
 }

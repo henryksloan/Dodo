@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <iostream>
 #include <memory>
 
 #include "bus.h"
@@ -35,7 +36,7 @@ class Cpu {
   bool getFlag(int offset) { return ((af.get_lo() >> offset) & 1) == 1; }
   void setFlag(int offset, bool val) {
     uint8_t new_f = af.get_lo();
-    new_f &= !(1 << offset);
+    new_f &= ~(1 << offset);
     new_f |= val << offset;
     af.set_lo(new_f);
   }
@@ -79,8 +80,10 @@ class Cpu {
   InstrFunc bit(getter src, int bit_n);
   InstrFunc set_reset(getter src, setter dst, int bit_n, bool set);
   int execute_cb();
-  InstrFunc jump(getter16 src, bool relative, int condition_off = 0,
+  InstrFunc jump(getter16 src, int condition_off = 0,
                  bool negate_condition = false);
+  InstrFunc jump_relative(getter src, int condition_off = 0,
+                          bool negate_condition = false);
   InstrFunc call(getter16 src, int condition_off = 0,
                  bool negate_condition = false);
   InstrFunc ret(bool enable_interrupt, int condition_off = 0,

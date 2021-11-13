@@ -1,10 +1,14 @@
 #include "cpu.h"
 
+#include <iomanip>
 #include <iostream>
 #include <tuple>
 #include <vector>
 
-Cpu::Cpu(std::shared_ptr<Bus> bus) : bus(bus) { initOpcodeTables(); }
+Cpu::Cpu(std::shared_ptr<Bus> bus) : bus(bus) {
+  initOpcodeTables();
+  reset();
+}
 
 int Cpu::step() {
   if (check_for_interrupt()) {
@@ -15,7 +19,21 @@ int Cpu::step() {
     return 1;
   }
 
+  if (bus->read(0xFF02) == 0x81) {
+    char c = bus->read(0xFF01);
+    std::cout << c;
+    bus->write(0xFF02, 0);
+  }
+
   uint8_t opcode = bus->read(pc.get());
+  // std::cout << std::hex << std::setfill('0') << std::setw(4) << (int)pc.get()
+  //           << ": " << std::setw(2) << (int)opcode << std::setw(4)
+  //           << " AF:" << std::setfill('0') << std::setw(4) << (int)af.get()
+  //           << " BC:" << std::setfill('0') << std::setw(4) << (int)bc.get()
+  //           << " DE:" << std::setfill('0') << std::setw(4) << (int)de.get()
+  //           << " HL:" << std::setfill('0') << std::setw(4) << (int)hl.get()
+  //           << " SP:" << std::setfill('0') << std::setw(4) << (int)sp.get()
+  //           << '\n';
   pc.set(pc.get() + 1);
   if (opcode == 0xCB) {
     return execute_cb();
@@ -26,7 +44,14 @@ int Cpu::step() {
 }
 
 void Cpu::reset() {
-  // TODO
+  // https://gbdev.io/pandocs/Power_Up_Sequence.html
+  // TODO: possibly address edge cases
+  af.set(0x01B0);
+  bc.set(0x0013);
+  de.set(0x00D8);
+  hl.set(0x014D);
+  pc.set(0x0100);
+  sp.set(0xFFFE);
 }
 
 bool Cpu::check_for_interrupt() {
@@ -36,8 +61,12 @@ bool Cpu::check_for_interrupt() {
   uint8_t triggered = bus->get_triggered_interrupts();
   if (triggered == 0) return false;
 
+  halted = false;
+  if (ime == false) return false;
+  ime = false;
+
   int bit_n;  // The bit index of first one
-  for (bit_n = 0; bit_n < 8 && (((triggered >> bit_n) & 1) == 1); bit_n++)
+  for (bit_n = 0; bit_n < 8 && (((triggered >> bit_n) & 1) == 0); bit_n++)
     ;
   if (bit_n > 4) {
     std::cerr << "invalid interrupt number: " << bit_n << std::endl;
@@ -49,7 +78,7 @@ bool Cpu::check_for_interrupt() {
   bus->write16(sp.get(), pc.get());
   pc.set(0x0040 | (bit_n << 3));
 
-  return 4;
+  return true;
 }
 
 // https://gbdev.io/pandocs/CPU_Instruction_Set.html
@@ -61,7 +90,15 @@ void Cpu::initOpcodeTables() {
         [&] { return reg.get_lo(); }, [&](uint8_t val) { reg.set_lo(val); });
   };
 
-  const auto [get_af, set_af, get_a, set_a, get_f, set_f] = get_set(af);
+  const auto get_a = [&] { return af.get_hi(); };
+  const auto get_f = [&] { return af.get_lo() & 0xF0; };
+  const auto set_a = [&](uint8_t val) { af.set_hi(val); };
+  const auto set_f = [&](uint8_t val) { af.set_lo(val & 0xF0); };
+  const auto get_af = [&] { return af.get(); };
+  const auto set_af = [&](uint16_t val) {
+    af.set_hi(val >> 8);
+    af.set_lo(val & 0xF0);
+  };
   const auto [get_bc, set_bc, get_b, set_b, get_c, set_c] = get_set(bc);
   const auto [get_de, set_de, get_d, set_d, get_e, set_e] = get_set(de);
   const auto [get_hl, set_hl, get_h, set_h, get_l, set_l] = get_set(hl);
@@ -108,12 +145,12 @@ void Cpu::initOpcodeTables() {
   const auto set_mem_hl_inc = [this](uint8_t val) {
     uint16_t temp = hl.get();
     hl.set(temp + 1);
-    return bus->write(temp, val);
+    bus->write(temp, val);
   };
   const auto set_mem_hl_dec = [this](uint8_t val) {
     uint16_t temp = hl.get();
     hl.set(temp - 1);
-    return bus->write(temp, val);
+    bus->write(temp, val);
   };
 
   // $02, $12, $22, $32, $0A, $1A, $2A, $3A
@@ -154,10 +191,12 @@ void Cpu::initOpcodeTables() {
   opcodes[0xF0] = ld(set_a, get_io_a8);
 
   // $E2, $F2
-  const auto get_mem_c = [this] { return bus->read(bc.get_lo()); };
-  const auto set_mem_c = [this](uint8_t val) { bus->write(bc.get_lo(), val); };
-  opcodes[0xE2] = ld(set_mem_c, get_a);
-  opcodes[0xF2] = ld(set_a, get_mem_c);
+  const auto get_io_c = [this] { return bus->read(0xFF00 + bc.get_lo()); };
+  const auto set_io_c = [this](uint8_t val) {
+    bus->write(0xFF00 + bc.get_lo(), val);
+  };
+  opcodes[0xE2] = ld(set_io_c, get_a);
+  opcodes[0xF2] = ld(set_a, get_io_c);
 
   // $EA, $FA
   // TODO: Verify that this does the proper little-endian addressing
@@ -202,8 +241,8 @@ void Cpu::initOpcodeTables() {
   const auto push_regs = getters16{get_bc, get_de, get_hl, get_af};
   const auto pop_regs = setters16{set_bc, set_de, set_hl, set_af};
   for (int i = 0xC; i <= 0xF; i++) {
-    opcodes[(i * 0x10) | 0x1] = push(push_regs[i - 0xC]);
-    opcodes[(i * 0x10) | 0x5] = pop(pop_regs[i - 0xC]);
+    opcodes[(i * 0x10) | 0x1] = pop(pop_regs[i - 0xC]);
+    opcodes[(i * 0x10) | 0x5] = push(push_regs[i - 0xC]);
   }
 
   // $F8, $F9
@@ -262,8 +301,8 @@ void Cpu::initOpcodeTables() {
 
   // === 16-bit arithmetic/logic instructions ===
   // ${0,1,2,3}{3,9,B}
-  auto src_16_bit_arith = getters{get_bc, get_de, get_hl, get_sp};
-  auto dst_16_bit_arith = setters{set_bc, set_de, set_hl, set_sp};
+  auto src_16_bit_arith = getters16{get_bc, get_de, get_hl, get_sp};
+  auto dst_16_bit_arith = setters16{set_bc, set_de, set_hl, set_sp};
   for (int i = 0; i < 4; i++) {
     opcodes[(i * 0x10) | 0x3] =
         step16_op(src_16_bit_arith[i], dst_16_bit_arith[i], true);
@@ -304,13 +343,13 @@ void Cpu::initOpcodeTables() {
     auto &src = src_8_bit[lo];
     auto &dst = dst_8_bit[lo];
     for (int i = 0; i < 4; i++) {
-      cb_opcodes[((0x4 + i) * 10) | lo] = bit(src, 2 * i);
-      cb_opcodes[((0x4 + i) * 10) | (lo + 0x8)] = bit(src, 2 * i + 1);
-      cb_opcodes[((0x8 + i) * 10) | lo] = set_reset(src, dst, 2 * i, false);
-      cb_opcodes[((0x8 + i) * 10) | (lo + 0x8)] =
+      cb_opcodes[((0x4 + i) * 0x10) | lo] = bit(src, 2 * i);
+      cb_opcodes[((0x4 + i) * 0x10) | (lo + 0x8)] = bit(src, 2 * i + 1);
+      cb_opcodes[((0x8 + i) * 0x10) | lo] = set_reset(src, dst, 2 * i, false);
+      cb_opcodes[((0x8 + i) * 0x10) | (lo + 0x8)] =
           set_reset(src, dst, 2 * i + 1, false);
-      cb_opcodes[((0xC + i) * 10) | lo] = set_reset(src, dst, 2 * i, true);
-      cb_opcodes[((0xC + i) * 10) | (lo + 0x8)] =
+      cb_opcodes[((0xC + i) * 0x10) | lo] = set_reset(src, dst, 2 * i, true);
+      cb_opcodes[((0xC + i) * 0x10) | (lo + 0x8)] =
           set_reset(src, dst, 2 * i + 1, true);
     }
   }
@@ -344,18 +383,18 @@ void Cpu::initOpcodeTables() {
   // TODO: Verify that this does the proper little-endian addressing
   const auto get_a16 = d16;
   // $C3, $E9, ${C,D}{2,A}
-  opcodes[0xC3] = jump(get_a16, false);
-  opcodes[0xE9] = jump(get_hl, false);
-  opcodes[0xC2] = jump(get_a16, false, kFlagOffZ, true);
-  opcodes[0xD2] = jump(get_a16, false, kFlagOffC, true);
-  opcodes[0xCA] = jump(get_a16, false, kFlagOffZ, false);
-  opcodes[0xDA] = jump(get_a16, false, kFlagOffC, false);
+  opcodes[0xC3] = jump(get_a16);
+  opcodes[0xE9] = jump(get_hl);
+  opcodes[0xC2] = jump(get_a16, kFlagOffZ, true);
+  opcodes[0xD2] = jump(get_a16, kFlagOffC, true);
+  opcodes[0xCA] = jump(get_a16, kFlagOffZ, false);
+  opcodes[0xDA] = jump(get_a16, kFlagOffC, false);
   // $18, $20, $30, $28, $38
-  opcodes[0x18] = jump(d8, true);
-  opcodes[0x20] = jump(d8, true, kFlagOffZ, true);
-  opcodes[0x30] = jump(d8, true, kFlagOffC, true);
-  opcodes[0x28] = jump(d8, true, kFlagOffZ, false);
-  opcodes[0x38] = jump(d8, true, kFlagOffC, false);
+  opcodes[0x18] = jump_relative(d8);
+  opcodes[0x20] = jump_relative(d8, kFlagOffZ, true);
+  opcodes[0x30] = jump_relative(d8, kFlagOffC, true);
+  opcodes[0x28] = jump_relative(d8, kFlagOffZ, false);
+  opcodes[0x38] = jump_relative(d8, kFlagOffC, false);
   // $CD, $C4, $D4, $CC, $DC
   opcodes[0xCD] = call(get_a16);
   opcodes[0xC4] = call(get_a16, kFlagOffZ, true);
@@ -371,8 +410,8 @@ void Cpu::initOpcodeTables() {
   opcodes[0xD8] = ret(false, kFlagOffC, false);
   // ${C,D,E,F}{7,F}
   for (int i = 0; i < 4; i++) {
-    opcodes[((0xC + i) * 10) | 0x7] = rst(0x10 * i);
-    opcodes[((0xC + i) * 10) | 0xF] = rst(0x10 * i + 0x8);
+    opcodes[((0xC + i) * 0x10) | 0x7] = rst(0x10 * i);
+    opcodes[((0xC + i) * 0x10) | 0xF] = rst(0x10 * i + 0x8);
   }
 }
 
@@ -464,9 +503,13 @@ Cpu::InstrFunc Cpu::daa() {
     uint8_t correction = 0;
     if (getFlag(kFlagOffH) || (!getFlag(kFlagOffN) && (a & 0xf) > 9)) {
       correction |= 0x6;
+    }
+    if (getFlag(kFlagOffC) || (!getFlag(kFlagOffN) && a > 0x99)) {
+      correction |= 0x60;
       new_carry = true;
     }
     a += getFlag(kFlagOffN) ? -correction : correction;
+    af.set_hi(a);
 
     setFlag(kFlagOffZ, a == 0);
     setFlag(kFlagOffH, false);
@@ -513,7 +556,7 @@ Cpu::InstrFunc Cpu::add_sp() {
     int8_t b = bus->read(pc.get());
     pc.set(pc.get() + 1);
     uint32_t result = a + b;
-    af.set_hi(result);
+    sp.set(result);
 
     setFlag(kFlagOffZ, false);
     setFlag(kFlagOffN, false);
@@ -650,7 +693,7 @@ Cpu::InstrFunc Cpu::bit(getter src, int bit_n) {
 Cpu::InstrFunc Cpu::set_reset(getter src, setter dst, int bit_n, bool set) {
   return [=, this] {
     uint8_t a = src();
-    a &= !(1 << bit_n);
+    a &= ~(1 << bit_n);
     if (set) a |= (1 << bit_n);
     dst(a);
   };
@@ -663,17 +706,22 @@ int Cpu::execute_cb() {
   return cb_opcodes_mcycles[cb_opcode];
 }
 
-Cpu::InstrFunc Cpu::jump(getter16 src, bool relative,
-                         int condition_off /* = 0 */,
+Cpu::InstrFunc Cpu::jump(getter16 src, int condition_off /* = 0 */,
                          bool negate_condition /* = false */) {
   return [=, this] {
+    uint16_t addr = src();
     if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
-      if (relative) {
-        int8_t off = src();
-        pc.set(pc.get() + off);
-      } else {
-        pc.set(src());
-      }
+      pc.set(addr);
+    }
+  };
+}
+
+Cpu::InstrFunc Cpu::jump_relative(getter src, int condition_off /* = 0 */,
+                                  bool negate_condition /* = false */) {
+  return [=, this] {
+    int8_t off = src();
+    if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
+      pc.set(pc.get() + off);
     }
   };
 }
@@ -681,10 +729,11 @@ Cpu::InstrFunc Cpu::jump(getter16 src, bool relative,
 Cpu::InstrFunc Cpu::call(getter16 src, int condition_off /* = 0 */,
                          bool negate_condition /* = false */) {
   return [=, this] {
+    uint16_t addr = src();
     if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
       sp.set(sp.get() - 2);
       bus->write16(sp.get(), pc.get());
-      pc.set(src());
+      pc.set(addr);
     }
   };
 }

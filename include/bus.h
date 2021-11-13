@@ -7,12 +7,11 @@
 #include <memory>
 
 #include "mbc/mbc.h"
+#include "ppu.h"
 #include "timer.h"
 
 const size_t kWramSize = 0x8000;
 const size_t kHramSize = 0x7E;
-const size_t kVramSize = 0x4000;
-const size_t kOamSize = 0x4000;
 
 const int kIntOffVBlank = 0;
 const int kIntOffStat = 1;
@@ -22,7 +21,7 @@ const int kIntOffJoypad = 4;
 
 class Bus {
  public:
-  Bus() : wram(), hram(), vram(), oam(), timer() {}
+  Bus() : wram(), hram(), ppu(), timer() {}
 
   void tick(int cpu_tcycles);
 
@@ -52,25 +51,30 @@ class Bus {
 
   void switchSpeed();
 
+  std::array<std::array<uint16_t, 160>, 144> frameTest() {
+    return ppu.frameTest();
+  }
+
  private:
   std::array<uint8_t, kWramSize> wram;
   std::array<uint8_t, kHramSize> hram;
-  std::shared_ptr<std::array<uint8_t, kVramSize>> vram;
-  std::shared_ptr<std::array<uint8_t, kOamSize>> oam;
+  uint8_t serial_temp[2];
 
   std::unique_ptr<Mbc> mbc;
 
+  Ppu ppu;
   Timer timer;
 
   uint8_t int_enable, int_request;  // $FFFF IE and $FF0F IF
   bool double_speed, prepare_speed_switch;
   bool cgb_mode;
 
-  size_t vram_bank, wram_bank;
+  size_t wram_bank;
 
   enum class HdmaMode { kHdmaNone, kHdmaGeneral, kHdmaHBlank } hdma_mode;
-  size_t hdma_src_dst[4];
+  size_t hdma_src_dst[4];  // The temporary registers, not the active transfer
   size_t hdma_len;
+  uint16_t hdma_src, hdma_dst;
 };
 
 #endif  // DODO_BUS_H_
