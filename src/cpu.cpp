@@ -233,9 +233,9 @@ void Cpu::initOpcodeTables() {
   const auto set_mem16_a16 = [this](uint16_t val) {
     uint16_t temp = pc.get();
     pc.set(temp + 2);
-    return bus->write16(bus->read16(temp), val);
+    bus->write16(bus->read16(temp), val);
   };
-  opcodes[0x08] = ld16(set_mem_a16, [this] { return sp.get(); });
+  opcodes[0x08] = ld16(set_mem16_a16, [this] { return sp.get(); });
 
   // $C1, $D1, $E1, $F1, $C5, $D5, $E5, $F5
   const auto push_regs = getters16{get_bc, get_de, get_hl, get_af};
@@ -246,13 +246,7 @@ void Cpu::initOpcodeTables() {
   }
 
   // $F8, $F9
-  const auto sp_plus_r8 = [this] {
-    uint16_t temp = pc.get();
-    pc.set(temp + 1);
-    int8_t r8 = bus->read(temp);
-    return sp.get() + r8;
-  };
-  opcodes[0xF8] = ld16(set_hl, sp_plus_r8);
+  opcodes[0xF8] = add16_imm(get_sp, set_hl);
   opcodes[0xF9] = ld16(set_sp, get_hl);
 
   // === 8-bit arithmetic/logic instructions ===
@@ -274,10 +268,10 @@ void Cpu::initOpcodeTables() {
   opcodes[0xC6] = add(d8, false);
   opcodes[0xD6] = sub(d8, false, false);
   opcodes[0xE6] = logic_op(d8, std::bit_and<uint8_t>(), true);
-  opcodes[0xF6] = logic_op(d8, std::bit_or<uint8_t>(), true);
+  opcodes[0xF6] = logic_op(d8, std::bit_or<uint8_t>(), false);
   opcodes[0xCE] = add(d8, true);
   opcodes[0xDE] = sub(d8, true, false);
-  opcodes[0xEE] = logic_op(d8, std::bit_xor<uint8_t>(), true);
+  opcodes[0xEE] = logic_op(d8, std::bit_xor<uint8_t>(), false);
   opcodes[0xFE] = sub(d8, false, true);
 
   // ${0,1,2,3}{4,5,C,D}
@@ -311,7 +305,7 @@ void Cpu::initOpcodeTables() {
         step16_op(src_16_bit_arith[i], dst_16_bit_arith[i], false);
   }
   // $E8
-  opcodes[0xE8] = add_sp();
+  opcodes[0xE8] = add16_imm(get_sp, set_sp);
 
   // === Rotate and shift instructions ===
 
@@ -444,7 +438,7 @@ Cpu::InstrFunc Cpu::add(getter src, bool carry) {
 
     setFlag(kFlagOffZ, (result & 0xFF) == 0);
     setFlag(kFlagOffN, false);
-    setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
+    setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf) + carry_if_any) & 0x10) == 0x10);
     setFlag(kFlagOffC, (result & 0x100) == 0x100);
   };
 };
@@ -491,7 +485,11 @@ Cpu::InstrFunc Cpu::step_op(getter get, setter set, bool incr) {
 
     setFlag(kFlagOffZ, result == 0);
     setFlag(kFlagOffN, 1 - incr);
-    setFlag(kFlagOffH, (((a & 0xf) + 1) & 0x10) == 0x10);
+    if (incr) {
+      setFlag(kFlagOffH, (((a & 0xf) + 1) & 0x10) == 0x10);
+    } else {
+      setFlag(kFlagOffH, (a & 0x0f) == 0);
+    }
   };
 }
 
@@ -545,23 +543,23 @@ Cpu::InstrFunc Cpu::add_hl(getter16 src) {
     hl.set(result);
 
     setFlag(kFlagOffN, false);
-    setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
+    setFlag(kFlagOffH, ((a & 0x7ff) + (b & 0x7ff)) > 0x7ff);
     setFlag(kFlagOffC, (result & 0x10000) == 0x10000);
   };
 }
 
-Cpu::InstrFunc Cpu::add_sp() {
+Cpu::InstrFunc Cpu::add16_imm(getter16 src, setter16 dst) {
   return [=, this] {
-    uint16_t a = sp.get();
+    uint16_t a = src();
     int8_t b = bus->read(pc.get());
     pc.set(pc.get() + 1);
     uint32_t result = a + b;
-    sp.set(result);
+    dst(result);
 
     setFlag(kFlagOffZ, false);
     setFlag(kFlagOffN, false);
-    setFlag(kFlagOffH, (((a & 0xf) + (b & 0xf)) & 0x10) == 0x10);
-    setFlag(kFlagOffC, (result & 0x10000) == 0x10000);
+    setFlag(kFlagOffH, ((a & 0xf) + (b & 0xf)) > 0xf);
+    setFlag(kFlagOffC, ((a & 0xff) + (b & 0xff)) > 0xff);
   };
 }
 
@@ -654,7 +652,7 @@ Cpu::InstrFunc Cpu::swap(getter src, setter dst) {
 Cpu::InstrFunc Cpu::sra(getter src, setter dst) {
   return [=, this] {
     uint8_t a = src();
-    bool top = a & 0x80;
+    uint8_t top = a & 0x80;
     bool bottom = a & 1;
     a = top | (a >> 1);
     dst(a);
