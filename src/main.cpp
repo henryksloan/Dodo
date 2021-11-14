@@ -42,6 +42,8 @@ int main(int argc, char **argv) {
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) break;
 
+    Uint64 start = SDL_GetPerformanceCounter();
+
     const Uint8 *key_state = SDL_GetKeyboardState(NULL);
     uint8_t action_keys = (!key_state[SDL_SCANCODE_RETURN] << 3) |
                           (!key_state[SDL_SCANCODE_RSHIFT] << 2) |
@@ -60,9 +62,15 @@ int main(int argc, char **argv) {
     SDL_UpdateTexture(texture, nullptr, frame.data(), 160 * 2);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
-  }
 
-  // SDL_Delay(3000);
+    Uint64 end = SDL_GetPerformanceCounter();
+
+    float elapsed_ms =
+        (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+
+    // Cap to 60 FPS
+    SDL_Delay(floor(16.666f - elapsed_ms));
+  }
 
   SDL_DestroyWindow(window);
   SDL_DestroyRenderer(renderer);

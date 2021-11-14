@@ -157,5 +157,43 @@ std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
     }
   }
 
+  bool obj_enable = (control >> 1) & 1;
+  if (!obj_enable) return frame;
+
+  bool large_obj = (control >> 2) & 1;
+  for (int oam_index = 0; oam_index < 40; oam_index++) {
+    uint8_t y = oam[oam_index * 4 + 0];
+    uint8_t x = oam[oam_index * 4 + 1];
+    if (x == 0 || x >= 168 || (large_obj && y == 0) || (!large_obj && y <= 8))
+      continue;
+    int8_t y_signed = y - 16;
+    int8_t x_signed = x - 8;
+
+    uint8_t tile_index = oam[oam_index * 4 + 2];
+    if (large_obj) tile_index &= ~1;
+    uint8_t attrs = oam[oam_index * 4 + 3];
+
+    for (int tile = 0; tile < (large_obj ? 2 : 1); tile++) {
+      uint16_t tile_start = 0x8000 + (tile_index + tile) * 16;
+      for (int line_n = 0; line_n < 8; line_n++) {
+        uint8_t least_sig_bits = readVram(tile_start + line_n * 2);
+        uint8_t most_sig_bits = readVram(tile_start + line_n * 2 + 1);
+
+        for (int pixel = 0; pixel < 8; pixel++) {
+          size_t pixel_index_y = y_signed + line_n + tile * 8;
+          size_t pixel_index_x = x_signed + pixel;
+          if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
+
+          uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+                              ((least_sig_bits >> (7 - pixel)) & 1);
+          uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
+          const uint16_t colors[4] = {0x7FFF, 0x6318, 0x4210, 0x0000};
+          uint16_t color = colors[color_i];
+          frame[pixel_index_y][pixel_index_x] = color;
+        }
+      }
+    }
+  }
+
   return frame;
 }

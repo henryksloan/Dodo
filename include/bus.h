@@ -57,6 +57,8 @@ class Bus {
     this->dir_buttons_pressed = dir_buttons_pressed;
   }
 
+  void oamdma(uint16_t addr);
+
   std::array<std::array<uint16_t, 160>, 144> frameTest() {
     return ppu.frameTest();
   }
