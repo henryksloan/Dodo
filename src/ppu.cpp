@@ -137,9 +137,9 @@ std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
         uint8_t least_sig_bits = readVram(tile_start + line_n * 2);
         uint8_t most_sig_bits = readVram(tile_start + line_n * 2 + 1);
         for (int pixel = 0; pixel < 8; pixel++) {
-          uint8_t color_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
-                            ((least_sig_bits >> (7 - pixel)) & 1);
-          // TODO: Check BGP
+          uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+                              ((least_sig_bits >> (7 - pixel)) & 1);
+          uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
           const uint16_t colors[4] = {0x7FFF, 0x6318, 0x4210, 0x0000};
           uint16_t color = colors[color_i];
           frame[top_y + line_n][left_x + pixel] = color;
