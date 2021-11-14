@@ -20,15 +20,17 @@ class Ppu {
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);
 
-  uint8_t readVram(uint16_t addr) { return vram[translateVramAddr(addr)]; }
+  uint8_t readVram(uint16_t addr) const {
+    return vram[translateVramAddr(addr)];
+  }
   void writeVram(uint16_t addr, uint8_t data) {
     vram[translateVramAddr(addr)] = data;
   }
 
-  uint8_t readOam(uint16_t addr) { return oam[addr - 0xFE00]; }
+  uint8_t readOam(uint16_t addr) const { return oam[addr - 0xFE00]; }
   void writeOam(uint16_t addr, uint8_t data) { oam[addr - 0xFE00] = data; }
 
-  bool getVramBank() { return vram_bank; }
+  bool getVramBank() const { return vram_bank; }
   void setVramBank(bool vram_bank) { this->vram_bank = vram_bank; }
 
   std::array<std::array<uint16_t, 160>, 144> frameTest();

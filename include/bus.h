@@ -44,8 +44,8 @@ class Bus {
   uint8_t ioRead(uint16_t addr);
   void ioWrite(uint16_t addr, uint8_t data);
 
-  uint8_t get_triggered_interrupts();
-  void clear_interrupt(int bit_n);
+  uint8_t get_triggered_interrupts() const { return int_enable & int_request; }
+  void clear_interrupt(int bit_n) { int_request &= ~(1 << bit_n); }
 
   int progressDma();
 
