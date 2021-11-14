@@ -38,11 +38,22 @@ int main(int argc, char **argv) {
                                            SDL_TEXTUREACCESS_TARGET, 160, 144);
 
   SDL_Event event;
+  int i = 0;
+  bool draw = false;
   while (true) {
+    draw = false;
+    bool frame_ready = gameboy.step();
+    // if (!frame_ready) continue;
+    if (frame_ready) {
+      i++;
+      if (i % 2 == 0) draw = true;
+    }
+    if (!draw) continue;
+
+    // Uint64 start = SDL_GetPerformanceCounter();
+
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) break;
-
-    Uint64 start = SDL_GetPerformanceCounter();
 
     const Uint8 *key_state = SDL_GetKeyboardState(NULL);
     uint8_t action_keys = (!key_state[SDL_SCANCODE_RETURN] << 3) |
@@ -55,23 +66,20 @@ int main(int argc, char **argv) {
                        (!key_state[SDL_SCANCODE_RIGHT]);
     gameboy.setButtonsPressed(action_keys, dir_keys);
 
-    for (int i = 0; i < 10000; i++) {
-      gameboy.step();
-    }
     auto frame = gameboy.frameTest();
-    SDL_UpdateTexture(texture, nullptr, frame.data(), 160 * 2);
+    SDL_UpdateTexture(texture, NULL, frame.data(), 160 * 2);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
 
-    Uint64 end = SDL_GetPerformanceCounter();
+    // Uint64 end = SDL_GetPerformanceCounter();
 
-    float elapsed_ms =
-        (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+    // float elapsed_ms =
+    //     (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
 
     // Cap to 60 FPS
-    if (elapsed_ms < 16.666f) {
-      SDL_Delay(floor(16.666f - elapsed_ms));
-    }
+    // if (elapsed_ms < 16.666f) {
+    //   SDL_Delay(floor(16.666f - elapsed_ms));
+    // }
   }
 
   SDL_DestroyWindow(window);

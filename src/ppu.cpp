@@ -3,9 +3,10 @@
 #include <algorithm>
 #include <iostream>
 
-uint8_t Ppu::tick(int ppu_ticks) {
-  if (((control >> 7) & 1) == 0) return 0;
+std::pair<uint8_t, bool> Ppu::tick(int ppu_ticks) {
+  if (((control >> 7) & 1) == 0) return std::make_pair(0, false);
   uint8_t interrupts = 0;
+  bool frame_ready = false;
 
   while (ppu_ticks > 0) {
     int delta_t = std::min(ppu_ticks, 80);
@@ -29,6 +30,7 @@ uint8_t Ppu::tick(int ppu_ticks) {
     if (this->lcd_y == 144) {
       interrupts |= kIntMaskVblank;
       if (this->mode_1_interrupt) interrupts |= kIntMaskStat;
+      frame_ready = true;
     }
   } else {
     // Non-VBlank line
@@ -47,7 +49,7 @@ uint8_t Ppu::tick(int ppu_ticks) {
     }
   }
 
-  return interrupts;
+  return std::make_pair(interrupts, frame_ready);
 }
 
 uint8_t Ppu::read(uint16_t addr) {
@@ -166,8 +168,8 @@ std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
     uint8_t x = oam[oam_index * 4 + 1];
     if (x == 0 || x >= 168 || (large_obj && y == 0) || (!large_obj && y <= 8))
       continue;
-    int8_t y_signed = y - 16;
-    int8_t x_signed = x - 8;
+    int16_t y_signed = (int16_t)y - 16;
+    int16_t x_signed = (int16_t)x - 8;
 
     uint8_t tile_index = oam[oam_index * 4 + 2];
     if (large_obj) tile_index &= ~1;
@@ -184,13 +186,14 @@ std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
         uint8_t most_sig_bits = readVram(tile_start + line_n * 2 + 1);
 
         for (int pixel = 0; pixel < 8; pixel++) {
-          size_t pixel_index_y = y_signed + line_n + tile * 8;
+          size_t pixel_index_y = y_signed + line_index + tile * 8;
           size_t pixel_index_x = x_signed + pixel;
           if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
 
           size_t pixel_num = x_flip ? pixel : 7 - pixel;
           uint8_t palette_i = (((most_sig_bits >> pixel_num) & 1) << 1) |
                               ((least_sig_bits >> pixel_num) & 1);
+          if (palette_i == 0) continue;
           uint8_t color_i =
               (dmg_obj_palette[palette_num] >> (palette_i * 2)) & 0b11;
           const uint16_t colors[4] = {0x7FFF, 0x6318, 0x4210, 0x0000};

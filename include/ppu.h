@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <utility>
 
 const size_t kVramSize = 0x4000;
 const size_t kOamSize = 0xA0;
@@ -15,7 +16,8 @@ class Ppu {
  public:
   Ppu() : vram(), oam() {}
 
-  uint8_t tick(int ppu_ticks);
+  // Returns (interrupt triggered mask, new frame ready)
+  std::pair<uint8_t, bool> tick(int ppu_ticks);
 
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);

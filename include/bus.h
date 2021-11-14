@@ -23,7 +23,8 @@ class Bus {
  public:
   Bus() : wram(), hram(), ppu(), timer() {}
 
-  void tick(int cpu_tcycles);
+  // Returns true if there is a new frame ready
+  bool tick(int cpu_tcycles);
 
   void loadMbc(std::unique_ptr<Mbc> mbc) { this->mbc = std::move(mbc); }
 

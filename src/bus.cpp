@@ -2,8 +2,9 @@
 
 #include <iomanip>
 #include <iostream>
+#include <utility>
 
-void Bus::tick(int cpu_tcycles) {
+bool Bus::tick(int cpu_tcycles) {
   int cpu_multiplier = double_speed ? 2 : 1;
   int dma_ticks = progressDma();
   int ppu_ticks = cpu_tcycles / cpu_multiplier + dma_ticks;
@@ -12,10 +13,12 @@ void Bus::tick(int cpu_tcycles) {
   bool timer_interrupt = timer.tick(cpu_ticks);
   int_request |= timer_interrupt << kIntOffTimer;
 
-  uint8_t ppu_interrupts = ppu.tick(ppu_ticks);
+  auto [ppu_interrupts, frame_ready] = ppu.tick(ppu_ticks);
   int_request |= ppu_interrupts;
 
   // TODO: Tick other devices
+
+  return frame_ready;
 }
 
 void Bus::reset() {
