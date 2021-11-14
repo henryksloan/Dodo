@@ -18,6 +18,7 @@ set(SOURCES
     src/timer.cpp
     src/ppu.cpp
     src/mbc/mbc1.cpp
+    src/mbc/mbc3.cpp
     src/main.cpp
 )
 

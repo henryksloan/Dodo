@@ -91,9 +91,7 @@ void Cpu::initOpcodeTables() {
   };
 
   const auto get_a = [&] { return af.get_hi(); };
-  const auto get_f = [&] { return af.get_lo() & 0xF0; };
   const auto set_a = [&](uint8_t val) { af.set_hi(val); };
-  const auto set_f = [&](uint8_t val) { af.set_lo(val & 0xF0); };
   const auto get_af = [&] { return af.get(); };
   const auto set_af = [&](uint16_t val) {
     af.set_hi(val >> 8);

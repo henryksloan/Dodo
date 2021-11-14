@@ -23,6 +23,7 @@ void Mbc1::writeRomLo(uint16_t addr, uint8_t data) {
     ram_enabled = (data & 0xF) == 0xA;
   } else {
     rom_bank_lo = data & 0x1F;
+    if (rom_bank_lo % 0x10 == 0) rom_bank_lo |= 1;
   }
 }
 

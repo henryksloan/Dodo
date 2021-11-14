@@ -132,7 +132,7 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
   } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
     // TODO :Waveform RAM
   } else if (addr == 0xFF46) {
-    // TODO: OAMDMA
+    oamdma((uint16_t)data * 0x100);
   } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
     ppu.write(addr, data);
   } else if (addr == 0xFF4D) {
@@ -178,5 +178,11 @@ void Bus::switchSpeed() {
   if (prepare_speed_switch) {
     double_speed = !double_speed;
     prepare_speed_switch = false;
+  }
+}
+
+void Bus::oamdma(uint16_t addr) {
+  for (int i = 0; i < 0x9F; i++) {
+    ppu.writeOam(0xFE00 + i, this->read(addr + i));
   }
 }
