@@ -27,3 +27,9 @@ add_executable(dodo ${SOURCES})
 target_include_directories(dodo PRIVATE ${PROJECT_SOURCE_DIR}/include)
 
 target_link_libraries(dodo ${SDL2_LIBRARIES})
+
+if(MSVC)
+  target_compile_options(dodo PRIVATE /W4 /WX)
+else()
+  target_compile_options(dodo PRIVATE -Wall -Wextra -Wpedantic -Werror)
+endif()

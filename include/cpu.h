@@ -25,7 +25,7 @@ class Cpu {
   void reset();
 
  private:
-  std::shared_ptr<Bus> bus;
+  const std::shared_ptr<Bus> bus;
 
   CpuRegister af, bc, de, hl, sp, pc;
   bool ime;  // Master interrupt enable flag
@@ -33,8 +33,10 @@ class Cpu {
 
   bool check_for_interrupt();
 
-  bool getFlag(int offset) { return ((af.get_lo() >> offset) & 1) == 1; }
-  void setFlag(int offset, bool val) {
+  bool getFlag(const int offset) const {
+    return ((af.get_lo() >> offset) & 1) == 1;
+  }
+  void setFlag(const int offset, const bool val) {
     uint8_t new_f = af.get_lo();
     new_f &= ~(1 << offset);
     new_f |= val << offset;

@@ -9,12 +9,13 @@ void Bus::tick(int cpu_tcycles) {
   int ppu_ticks = cpu_tcycles / cpu_multiplier + dma_ticks;
   int cpu_ticks = cpu_tcycles + dma_ticks * cpu_multiplier;
 
-  // TODO: Tick devices
   bool timer_interrupt = timer.tick(cpu_ticks);
   int_request |= timer_interrupt << kIntOffTimer;
 
   uint8_t ppu_interrupts = ppu.tick(ppu_ticks);
   int_request |= ppu_interrupts;
+
+  // TODO: Tick other devices
 }
 
 void Bus::reset() {
@@ -164,10 +165,6 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
     wram_bank = data & 0b111;
   }
 }
-
-uint8_t Bus::get_triggered_interrupts() { return int_enable & int_request; }
-
-void Bus::clear_interrupt(int bit_n) { int_request &= ~(1 << bit_n); }
 
 int Bus::progressDma() {
   // TODO: Progress any active DMA
