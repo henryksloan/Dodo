@@ -113,7 +113,7 @@ void Cpu::initOpcodeTables() {
   // All the opcodes with hi nybble 4, 5, 6, and 7, excluding $76 (HALT)
   auto src_8_bit =
       getters{get_b, get_c, get_d, get_e, get_h, get_l, get_mem_hl, get_a};
-  for (int lo = 0; lo < src_8_bit.size(); lo++) {
+  for (auto lo = 0; lo < (int)src_8_bit.size(); lo++) {
     auto &src = src_8_bit[lo];
     opcodes[0x40 | lo] = ld(set_b, src);
     opcodes[0x50 | lo] = ld(set_d, src);
@@ -250,7 +250,7 @@ void Cpu::initOpcodeTables() {
   // === 8-bit arithmetic/logic instructions ===
 
   // All the opcodes with hi nybble 8, 9, A, and B
-  for (int lo = 0; lo < src_8_bit.size(); lo++) {
+  for (int lo = 0; lo < (int)src_8_bit.size(); lo++) {
     auto &src = src_8_bit[lo];
     opcodes[0x80 | lo] = add(src, false);
     opcodes[0x90 | lo] = sub(src, false, false);
@@ -316,7 +316,7 @@ void Cpu::initOpcodeTables() {
   auto dst_8_bit =
       setters{set_b, set_c, set_d, set_e, set_h, set_l, set_mem_hl, set_a};
   // $CB suffix ${0,1,2,3}*
-  for (int lo = 0; lo < src_8_bit.size(); lo++) {
+  for (int lo = 0; lo < (int)src_8_bit.size(); lo++) {
     auto &src = src_8_bit[lo];
     auto &dst = dst_8_bit[lo];
     cb_opcodes[0x00 | lo] = rlc(src, dst, false);
@@ -331,7 +331,7 @@ void Cpu::initOpcodeTables() {
 
   // === Single-bit operation instructions ===
   // $CB suffix ${4-F}*
-  for (int lo = 0; lo < src_8_bit.size(); lo++) {
+  for (int lo = 0; lo < (int)src_8_bit.size(); lo++) {
     auto &src = src_8_bit[lo];
     auto &dst = dst_8_bit[lo];
     for (int i = 0; i < 4; i++) {
