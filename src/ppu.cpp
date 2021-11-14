@@ -26,8 +26,10 @@ uint8_t Ppu::tick(int ppu_ticks) {
   if (this->lcd_y >= 144) {
     // VBlank line
     this->stat_mode = kModeVblank;
-    if (this->mode_1_interrupt && this->lcd_y == 144)
+    if (this->lcd_y == 144) {
       interrupts |= kIntMaskVblank;
+      if (this->mode_1_interrupt) interrupts |= kIntMaskStat;
+    }
   } else {
     // Non-VBlank line
     if (this->ppu_tick_divider < 80) {
@@ -119,22 +121,25 @@ void Ppu::write(uint16_t addr, uint8_t data) {
 std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
   std::array<std::array<uint16_t, 160>, 144> frame;
 
-  uint16_t tile_data_base = 0x8800;
+  bool signed_addressing = ((control >> 4) & 1) == 0;
+  uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
   uint16_t tile_map_base = ((control >> 3) & 1) ? 0x9C00 : 0x9800;
 
   for (int tile_row = 0; tile_row < 18; tile_row++) {
     for (int tile_col = 0; tile_col < 20; tile_col++) {
       uint8_t tile_index = readVram(tile_map_base + (tile_row * 32) + tile_col);
-      uint16_t tile_start = tile_data_base + tile_index * 16;
+      uint16_t tile_start =
+          tile_data_base +
+          (signed_addressing ? (int8_t)tile_index : tile_index) * 16;
       size_t top_y = tile_row * 8;
       size_t left_x = tile_col * 8;
       for (int line_n = 0; line_n < 8; line_n++) {
         uint8_t least_sig_bits = readVram(tile_start + line_n * 2);
         uint8_t most_sig_bits = readVram(tile_start + line_n * 2 + 1);
         for (int pixel = 0; pixel < 8; pixel++) {
-          uint8_t color_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
-                            ((least_sig_bits >> (7 - pixel)) & 1);
-          // TODO: Check BGP
+          uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+                              ((least_sig_bits >> (7 - pixel)) & 1);
+          uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
           const uint16_t colors[4] = {0x7FFF, 0x6318, 0x4210, 0x0000};
           uint16_t color = colors[color_i];
           frame[top_y + line_n][left_x + pixel] = color;

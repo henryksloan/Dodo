@@ -53,7 +53,7 @@ void Timer::write(uint16_t addr, uint8_t data) {
       break;
     case 0xFF07:
       enable = data & 0b100;
-      data = data & 0b11;
+      clock_select = data & 0b11;
       break;
   }
 }

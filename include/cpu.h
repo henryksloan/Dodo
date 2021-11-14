@@ -68,7 +68,7 @@ class Cpu {
   InstrFunc cpl();
   InstrFunc step16_op(getter16 get, setter16 set, bool incr);
   InstrFunc add_hl(getter16 src);
-  InstrFunc add_sp();
+  InstrFunc add16_imm(getter16 src, setter16 dst);
   InstrFunc rlc(getter src, setter dst, bool reg_a);
   InstrFunc rl(getter src, setter dst, bool reg_a);
   InstrFunc rrc(getter src, setter dst, bool reg_a);
