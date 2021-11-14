@@ -25,7 +25,7 @@ int main(int argc, char **argv) {
 
   SDL_Init(SDL_INIT_VIDEO);
 
-  SDL_Window *window = SDL_CreateWindow("SDL2Test", SDL_WINDOWPOS_UNDEFINED,
+  SDL_Window *window = SDL_CreateWindow("Dodo", SDL_WINDOWPOS_UNDEFINED,
                                         SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
 
   SDL_Renderer *renderer =
@@ -41,6 +41,18 @@ int main(int argc, char **argv) {
   while (true) {
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) break;
+
+    const Uint8 *key_state = SDL_GetKeyboardState(NULL);
+    uint8_t action_keys = (!key_state[SDL_SCANCODE_RETURN] << 3) |
+                          (!key_state[SDL_SCANCODE_RSHIFT] << 2) |
+                          (!key_state[SDL_SCANCODE_Z] << 1) |
+                          (!key_state[SDL_SCANCODE_X]);
+    uint8_t dir_keys = (!key_state[SDL_SCANCODE_DOWN] << 3) |
+                       (!key_state[SDL_SCANCODE_UP] << 2) |
+                       (!key_state[SDL_SCANCODE_LEFT] << 1) |
+                       (!key_state[SDL_SCANCODE_RIGHT]);
+    gameboy.setButtonsPressed(action_keys, dir_keys);
+
     for (int i = 0; i < 10000; i++) {
       gameboy.step();
     }

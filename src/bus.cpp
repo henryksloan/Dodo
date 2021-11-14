@@ -77,7 +77,12 @@ uint8_t Bus::ioRead(uint16_t addr) {
   // TODO: FF56 - Infrared
   // TODO: FF6C - Object priority
   if (addr == 0xFF00) {
-    // TODO: Controller
+    // 0 means selected, and 0 means pressed
+    // Don't ask me why
+    uint8_t masked_actions = select_action_buttons ? 0 : action_buttons_pressed;
+    uint8_t masked_dirs = select_dir_buttons ? 0 : dir_buttons_pressed;
+    return (select_action_buttons << 5) | (select_dir_buttons << 4) |
+           masked_actions | masked_dirs;
   } else if (addr == 0xFF01 || addr == 0xFF02) {
     // TODO: Communication
     return serial_temp[addr - 0xFF01];
@@ -113,7 +118,8 @@ uint8_t Bus::ioRead(uint16_t addr) {
 void Bus::ioWrite(uint16_t addr, uint8_t data) {
   // TODO: Limit some to CGB mode
   if (addr == 0xFF00) {
-    // TODO: Controller
+    select_action_buttons = (data >> 5) & 1;
+    select_dir_buttons = (data >> 4) & 1;
   } else if (addr == 0xFF01 || addr == 0xFF02) {
     // TODO: Communication
     serial_temp[addr - 0xFF01] = data;

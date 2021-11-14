@@ -28,6 +28,15 @@ class Gameboy {
   static std::variant<std::unique_ptr<Mbc>, std::string> makeMbc(
       uint8_t type, size_t ram_size, const std::vector<uint8_t> &data);
 
+  // Bit 3  Down  or Start    (0=Pressed)
+  // Bit 2  Up    or Select   (0=Pressed)
+  // Bit 1  Left  or B        (0=Pressed)
+  // Bit 0  Right or A        (0=Pressed)
+  void setButtonsPressed(uint8_t action_buttons_pressed,
+                         uint8_t dir_buttons_pressed) {
+    bus->setButtonsPressed(action_buttons_pressed, dir_buttons_pressed);
+  }
+
   std::array<std::array<uint16_t, 160>, 144> frameTest() {
     return bus->frameTest();
   }

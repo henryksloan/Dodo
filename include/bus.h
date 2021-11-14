@@ -51,6 +51,12 @@ class Bus {
 
   void switchSpeed();
 
+  void setButtonsPressed(uint8_t action_buttons_pressed,
+                         uint8_t dir_buttons_pressed) {
+    this->action_buttons_pressed = action_buttons_pressed;
+    this->dir_buttons_pressed = dir_buttons_pressed;
+  }
+
   std::array<std::array<uint16_t, 160>, 144> frameTest() {
     return ppu.frameTest();
   }
@@ -75,6 +81,9 @@ class Bus {
   size_t hdma_src_dst[4];  // The temporary registers, not the active transfer
   size_t hdma_len;
   uint16_t hdma_src, hdma_dst;
+
+  bool select_action_buttons, select_dir_buttons;
+  uint8_t action_buttons_pressed, dir_buttons_pressed;
 };
 
 #endif  // DODO_BUS_H_
