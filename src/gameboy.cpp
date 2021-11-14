@@ -3,6 +3,10 @@
 #include <fstream>
 #include <sstream>
 
+#include "mbc/mbc0.h"
+#include "mbc/mbc1.h"
+#include "mbc/mbc3.h"
+
 void Gameboy::step() {
   int cpu_tcycles = cpu.step() * 4;
   bus->tick(cpu_tcycles);
@@ -54,10 +58,17 @@ std::variant<std::unique_ptr<Mbc>, std::string> Gameboy::makeMbc(
       return std::make_unique<Mbc0>(data, ram_size);
       break;
     case 0x01:
-      return std::make_unique<Mbc1>(data, ram_size);
-      break;
     case 0x02:
     case 0x03:
+      return std::make_unique<Mbc1>(data, ram_size);
+      break;
+    case 0x0F:
+    case 0x10:
+    case 0x11:
+    case 0x12:
+    case 0x13:
+      return std::make_unique<Mbc3>(data, ram_size);
+      break;
     case 0x05:
     case 0x06:
     case 0x08:
@@ -65,11 +76,6 @@ std::variant<std::unique_ptr<Mbc>, std::string> Gameboy::makeMbc(
     case 0x0B:
     case 0x0C:
     case 0x0D:
-    case 0x0F:
-    case 0x10:
-    case 0x11:
-    case 0x12:
-    case 0x13:
     case 0x19:
     case 0x1A:
     case 0x1B:

@@ -69,7 +69,9 @@ int main(int argc, char **argv) {
         (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
 
     // Cap to 60 FPS
-    SDL_Delay(floor(16.666f - elapsed_ms));
+    if (elapsed_ms < 16.666f) {
+      SDL_Delay(floor(16.666f - elapsed_ms));
+    }
   }
 
   SDL_DestroyWindow(window);

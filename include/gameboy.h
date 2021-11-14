@@ -10,8 +10,6 @@
 #include "bus.h"
 #include "cpu.h"
 #include "mbc/mbc.h"
-#include "mbc/mbc0.h"
-#include "mbc/mbc1.h"
 
 class Gameboy {
  public:
