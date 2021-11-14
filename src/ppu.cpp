@@ -26,8 +26,10 @@ uint8_t Ppu::tick(int ppu_ticks) {
   if (this->lcd_y >= 144) {
     // VBlank line
     this->stat_mode = kModeVblank;
-    if (this->mode_1_interrupt && this->lcd_y == 144)
+    if (this->lcd_y == 144) {
       interrupts |= kIntMaskVblank;
+      if (this->mode_1_interrupt) interrupts |= kIntMaskStat;
+    }
   } else {
     // Non-VBlank line
     if (this->ppu_tick_divider < 80) {

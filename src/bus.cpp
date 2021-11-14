@@ -19,6 +19,9 @@ void Bus::tick(int cpu_tcycles) {
 
 void Bus::reset() {
   // TODO: Reset devices
+  // TODO: https://gbdev.io/pandocs/Power_Up_Sequence.html
+  ppu.write(0xFF40, 0x91);
+  ppu.write(0xFF41, 0x81);
 }
 
 uint8_t Bus::read(uint16_t addr) {
