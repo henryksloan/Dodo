@@ -22,7 +22,7 @@ class Cpu {
   // returning the number of m-cycles taken
   int step();
 
-  void reset();
+  void reset(bool cgb_mode);
 
  private:
   const std::shared_ptr<Bus> bus;

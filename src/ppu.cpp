@@ -76,6 +76,11 @@ uint8_t Ppu::read(uint16_t addr) {
       return window_y;
     case 0xFF4B:
       return window_x;
+
+    case 0xFF69:
+      return cgb_bg_palette[cgb_bg_palette_index];
+    case 0xFF6B:
+      return cgb_obj_palette[cgb_obj_palette_index];
   }
   return 0;
 }
@@ -115,6 +120,25 @@ void Ppu::write(uint16_t addr, uint8_t data) {
     case 0xFF4B:
       window_x = data;
       break;
+
+    case 0xFF68:
+      cgb_bg_palette_auto_incr = data >> 7;
+      cgb_bg_palette_index = data & 0x3F;
+      break;
+    case 0xFF69:
+      cgb_bg_palette[cgb_bg_palette_index] = data;
+      if (cgb_bg_palette_auto_incr)
+        cgb_bg_palette_index = (cgb_bg_palette_index + 1) % 0x40;
+      break;
+    case 0xFF6A:
+      cgb_bg_palette_auto_incr = data >> 7;
+      cgb_bg_palette_index = data & 0x3F;
+      break;
+    case 0xFF6B:
+      cgb_obj_palette[cgb_obj_palette_index] = data;
+      if (cgb_obj_palette_auto_incr)
+        cgb_obj_palette_index = (cgb_obj_palette_index + 1) % 0x40;
+      break;
   }
 }
 
@@ -129,7 +153,7 @@ std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
 }
 
 void Ppu::drawBg(std::array<std::array<uint16_t, 160>, 144> &frame) {
-  bool bg_win_enable = control & 1;
+  bool bg_win_enable = !cgb_mode || (control & 1);
   if (!bg_win_enable) return;
 
   bool signed_addressing = ((control >> 4) & 1) == 0;
@@ -170,7 +194,8 @@ void Ppu::drawBg(std::array<std::array<uint16_t, 160>, 144> &frame) {
 
 void Ppu::drawWin(std::array<std::array<uint16_t, 160>, 144> &frame) {
   bool win_enable = (control >> 5) & 1;
-  if (!win_enable) return;
+  bool bg_win_enable = !cgb_mode || (control & 1);
+  if (!win_enable || !bg_win_enable) return;
 
   bool signed_addressing = ((control >> 4) & 1) == 0;
   uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
@@ -224,7 +249,7 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
     uint8_t tile_index = oam[oam_index * 4 + 2];
     if (large_obj) tile_index &= ~1;
     uint8_t attrs = oam[oam_index * 4 + 3];
-    bool bg_win_over_obj = (attrs >> 7) & 1;
+    bool bg_win_over_obj = (!cgb_mode || (control & 1)) && ((attrs >> 7) & 1);
     bool y_flip = (attrs >> 6) & 1;
     bool x_flip = (attrs >> 5) & 1;
     bool palette_num = (attrs >> 4) & 1;

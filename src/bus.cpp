@@ -19,7 +19,10 @@ void Bus::tick(int cpu_tcycles) {
   // TODO: Tick other devices
 }
 
-void Bus::reset() {
+void Bus::reset(bool cgb_mode) {
+  this->cgb_mode = cgb_mode;
+  this->ppu.setCgbMode(cgb_mode);
+
   // TODO: Reset devices
   // TODO: https://gbdev.io/pandocs/Power_Up_Sequence.html
   ioWrite(0xFF40, 0x91);
@@ -140,7 +143,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr == 0xFF55) {
     return ((hdma_mode != HdmaMode::kHdmaNone) << 7) | hdma_len;
   } else if (addr >= 0xFF68 && addr <= 0xFF6B) {
-    // TODO: BG/OBJ Palettes
+    return ppu.read(addr);
   } else if (addr == 0xFF70) {
     return wram_bank;
   }
@@ -192,15 +195,40 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
       hdma_mode = bit_7 ? HdmaMode::kHdmaHBlank : HdmaMode::kHdmaGeneral;
     }
   } else if (addr >= 0xFF68 && addr <= 0xFF6B) {
-    // TODO: BG/OBJ Palettes
+    ppu.write(addr, data);
   } else if (addr == 0xFF70) {
     wram_bank = data & 0b111;
   }
 }
 
 int Bus::progressDma() {
-  // TODO: Progress any active DMA
+  switch (hdma_mode) {
+    case HdmaMode::kHdmaGeneral:
+      return hdmaTransferLines(hdma_len + 1);
+    case HdmaMode::kHdmaHBlank:
+      return ppu.inHblank() ? hdmaTransferLines() : 0;
+    case HdmaMode::kHdmaNone:
+      return 0;
+  }
   return 0;
+}
+
+int Bus::hdmaTransferLines(int n_lines /* = 1 */) {
+  for (int i = 0; i < n_lines; i++) {
+    for (int j = 0; j < 0x10; j++) {
+      ppu.writeVram(hdma_dst, this->read(hdma_src));
+    }
+    hdma_src += 0x10;
+    hdma_dst += 0x10;
+
+    if (hdma_len == 0) {
+      hdma_len = 0x7F;
+      hdma_mode = HdmaMode::kHdmaNone;
+    } else {
+      hdma_len--;
+    }
+  }
+  return 8 * n_lines;
 }
 
 void Bus::switchSpeed() {

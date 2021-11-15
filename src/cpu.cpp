@@ -7,7 +7,7 @@
 
 Cpu::Cpu(std::shared_ptr<Bus> bus) : bus(bus) {
   initOpcodeTables();
-  reset();
+  reset(false);
 }
 
 int Cpu::step() {
@@ -43,10 +43,10 @@ int Cpu::step() {
   }
 }
 
-void Cpu::reset() {
+void Cpu::reset(bool cgb_mode) {
   // https://gbdev.io/pandocs/Power_Up_Sequence.html
   // TODO: possibly address edge cases
-  af.set(0x01B0);
+  af.set(cgb_mode ? 0x11B0 : 0x01B0);
   bc.set(0x0013);
   de.set(0x00D8);
   hl.set(0x014D);

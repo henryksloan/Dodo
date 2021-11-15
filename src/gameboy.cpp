@@ -46,8 +46,10 @@ std::optional<std::string> Gameboy::loadCartridge(std::string filename) {
     return std::get<1>(mbc_result);
   }
 
-  bus->reset();
-  cpu.reset();
+  bool cgb_flag = (data[0x143] >> 7) & 1;
+
+  bus->reset(cgb_flag);
+  cpu.reset(cgb_flag);
 
   return {};
 }
