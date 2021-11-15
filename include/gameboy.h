@@ -15,8 +15,8 @@ class Gameboy {
  public:
   Gameboy() : bus(std::make_shared<Bus>()), cpu(bus) {}
 
-  // Returns true if a new frame is ready
-  bool step();
+  // Returns number of CPU T-Cycles
+  int step();
 
   // Attempts to laod a cartridge, returning an error string on failure.
   // This is atomic, so any failure to load the file or create the MBC

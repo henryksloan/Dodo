@@ -4,7 +4,6 @@
 #include <array>
 #include <cstdint>
 #include <memory>
-#include <utility>
 
 const size_t kVramSize = 0x4000;
 const size_t kOamSize = 0xA0;
@@ -12,12 +11,14 @@ const size_t kOamSize = 0xA0;
 const int kIntMaskVblank = 0b1;
 const int kIntMaskStat = 0b10;
 
+const uint16_t dmg_colors[4] = {0x7FFF, 0x6318, 0x4210, 0x0000};
+
 class Ppu {
  public:
   Ppu() : vram(), oam() {}
 
   // Returns (interrupt triggered mask, new frame ready)
-  std::pair<uint8_t, bool> tick(int ppu_ticks);
+  uint8_t tick(int ppu_ticks);
 
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);
@@ -66,6 +67,10 @@ class Ppu {
     uint16_t bank = 0x2000 * (cgb_mode ? vram_bank : 0);
     return bank + (addr - 0x8000);
   }
+
+  void drawBg(std::array<std::array<uint16_t, 160>, 144> &frame);
+  void drawWin(std::array<std::array<uint16_t, 160>, 144> &frame);
+  void drawObj(std::array<std::array<uint16_t, 160>, 144> &frame);
 };
 
 #endif  // DODO_PPU_H_

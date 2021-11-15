@@ -7,9 +7,10 @@
 #include "mbc/mbc1.h"
 #include "mbc/mbc3.h"
 
-bool Gameboy::step() {
+int Gameboy::step() {
   int cpu_tcycles = cpu.step() * 4;
-  return bus->tick(cpu_tcycles);
+  bus->tick(cpu_tcycles);
+  return cpu_tcycles;
 }
 
 std::optional<std::string> Gameboy::loadCartridge(std::string filename) {

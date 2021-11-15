@@ -38,19 +38,16 @@ int main(int argc, char **argv) {
                                            SDL_TEXTUREACCESS_TARGET, 160, 144);
 
   SDL_Event event;
-  int i = 0;
-  bool draw = false;
+  int tick_counter = 0;
   while (true) {
-    draw = false;
-    bool frame_ready = gameboy.step();
-    // if (!frame_ready) continue;
-    if (frame_ready) {
-      i++;
-      if (i % 2 == 0) draw = true;
+    tick_counter += gameboy.step();
+    if (tick_counter > 702240 / 4) {
+      tick_counter = 0;
+    } else {
+      continue;
     }
-    if (!draw) continue;
 
-    // Uint64 start = SDL_GetPerformanceCounter();
+    Uint64 start = SDL_GetPerformanceCounter();
 
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) break;
@@ -71,15 +68,15 @@ int main(int argc, char **argv) {
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
 
-    // Uint64 end = SDL_GetPerformanceCounter();
+    Uint64 end = SDL_GetPerformanceCounter();
 
-    // float elapsed_ms =
-    //     (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+    float elapsed_ms =
+        (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
 
     // Cap to 60 FPS
-    // if (elapsed_ms < 16.666f) {
-    //   SDL_Delay(floor(16.666f - elapsed_ms));
-    // }
+    if (elapsed_ms < 16.666f) {
+      SDL_Delay(floor(16.666f - elapsed_ms));
+    }
   }
 
   SDL_DestroyWindow(window);
