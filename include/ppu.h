@@ -78,9 +78,22 @@ class Ppu {
     return bank + (addr - 0x8000);
   }
 
+  uint8_t readVramBank0(const uint16_t addr) const {
+    return vram[addr - 0x8000];
+  }
+
+  uint8_t readVramBank1(const uint16_t addr) const {
+    return vram[addr - 0x8000 + 0x2000];
+  }
+
   void drawBg(std::array<std::array<uint16_t, 160>, 144> &frame);
   void drawWin(std::array<std::array<uint16_t, 160>, 144> &frame);
   void drawObj(std::array<std::array<uint16_t, 160>, 144> &frame);
+
+  void drawBgWinTile(std::array<std::array<uint16_t, 160>, 144> &frame,
+                     uint16_t tile_map_base, int tile_row, int tile_col,
+                     uint16_t tile_row_index, uint16_t tile_col_index,
+                     int y_off, int x_off);
 };
 
 #endif  // DODO_PPU_H_

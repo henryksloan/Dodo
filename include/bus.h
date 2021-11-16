@@ -21,7 +21,7 @@ const int kIntOffJoypad = 4;
 
 class Bus {
  public:
-  Bus() : wram(), hram(), ppu(), timer() {}
+  Bus() : wram(), hram(), ppu(), timer(), wram_bank(1) {}
 
   // Returns true if there is a new frame ready
   void tick(int cpu_tcycles);
