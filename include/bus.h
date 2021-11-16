@@ -23,11 +23,12 @@ class Bus {
  public:
   Bus() : wram(), hram(), ppu(), timer() {}
 
+  // Returns true if there is a new frame ready
   void tick(int cpu_tcycles);
 
   void loadMbc(std::unique_ptr<Mbc> mbc) { this->mbc = std::move(mbc); }
 
-  void reset();
+  void reset(bool cgb_mode);
 
   uint8_t read(uint16_t addr);
   void write(uint16_t addr, uint8_t data);
@@ -48,6 +49,7 @@ class Bus {
   void clear_interrupt(int bit_n) { int_request &= ~(1 << bit_n); }
 
   int progressDma();
+  int hdmaTransferLines(int n_lines = 1);
 
   void switchSpeed();
 

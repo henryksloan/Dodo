@@ -38,11 +38,19 @@ int main(int argc, char **argv) {
                                            SDL_TEXTUREACCESS_TARGET, 160, 144);
 
   SDL_Event event;
+  int tick_counter = 0;
   while (true) {
-    SDL_PollEvent(&event);
-    if (event.type == SDL_QUIT) break;
+    tick_counter += gameboy.step();
+    if (tick_counter > 702240 / 4) {
+      tick_counter = 0;
+    } else {
+      continue;
+    }
 
     Uint64 start = SDL_GetPerformanceCounter();
+
+    SDL_PollEvent(&event);
+    if (event.type == SDL_QUIT) break;
 
     const Uint8 *key_state = SDL_GetKeyboardState(NULL);
     uint8_t action_keys = (!key_state[SDL_SCANCODE_RETURN] << 3) |
@@ -55,11 +63,8 @@ int main(int argc, char **argv) {
                        (!key_state[SDL_SCANCODE_RIGHT]);
     gameboy.setButtonsPressed(action_keys, dir_keys);
 
-    for (int i = 0; i < 10000; i++) {
-      gameboy.step();
-    }
     auto frame = gameboy.frameTest();
-    SDL_UpdateTexture(texture, nullptr, frame.data(), 160 * 2);
+    SDL_UpdateTexture(texture, NULL, frame.data(), 160 * 2);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);
 

@@ -7,9 +7,10 @@
 #include "mbc/mbc1.h"
 #include "mbc/mbc3.h"
 
-void Gameboy::step() {
+int Gameboy::step() {
   int cpu_tcycles = cpu.step() * 4;
   bus->tick(cpu_tcycles);
+  return cpu_tcycles;
 }
 
 std::optional<std::string> Gameboy::loadCartridge(std::string filename) {
@@ -45,8 +46,10 @@ std::optional<std::string> Gameboy::loadCartridge(std::string filename) {
     return std::get<1>(mbc_result);
   }
 
-  bus->reset();
-  cpu.reset();
+  bool cgb_flag = (data[0x143] >> 7) & 1;
+
+  bus->reset(cgb_flag);
+  cpu.reset(cgb_flag);
 
   return {};
 }
