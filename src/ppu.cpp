@@ -156,54 +156,14 @@ void Ppu::drawBg(std::array<std::array<uint16_t, 160>, 144> &frame) {
   bool bg_win_enable = !cgb_mode || (control & 1);
   if (!bg_win_enable) return;
 
-  bool signed_addressing = ((control >> 4) & 1) == 0;
-  uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
   uint16_t tile_map_base = ((control >> 3) & 1) ? 0x9C00 : 0x9800;
 
   for (int tile_row = 0; tile_row < 19; tile_row++) {
     for (int tile_col = 0; tile_col < 21; tile_col++) {
       uint16_t tile_row_index = ((tile_row + (scroll_y / 8)) % 32) * 32;
       uint16_t tile_col_index = (tile_col + (scroll_x / 8)) % 32;
-      uint8_t tile_index =
-          readVramBank0(tile_map_base + tile_row_index + tile_col_index);
-
-      uint8_t attrs = 0;
-      if (cgb_mode)
-        attrs = readVramBank1(0x9800 + tile_row_index + tile_col_index);
-
-      uint16_t tile_start =
-          tile_data_base +
-          (signed_addressing ? (int8_t)tile_index : tile_index) * 16;
-      if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
-
-      size_t top_y = tile_row * 8 - (scroll_y % 8);
-      size_t left_x = tile_col * 8 - (scroll_x % 8);
-      for (int line_n = 0; line_n < 8; line_n++) {
-        uint8_t least_sig_bits = readVramBank0(tile_start + line_n * 2);
-        uint8_t most_sig_bits = readVramBank0(tile_start + line_n * 2 + 1);
-
-        for (int pixel = 0; pixel < 8; pixel++) {
-          size_t pixel_index_y = top_y + line_n;
-          size_t pixel_index_x = left_x + pixel;
-          if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
-
-          uint16_t color;
-          if (cgb_mode) {
-            uint8_t palette_num = attrs & 0b111;
-            uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
-                                ((least_sig_bits >> (7 - pixel)) & 1);
-            uint8_t color_i = palette_num * 8 + palette_i * 2;
-            color = (((uint16_t)cgb_bg_palette[color_i + 1]) << 8) |
-                    cgb_bg_palette[color_i];
-          } else {
-            uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
-                                ((least_sig_bits >> (7 - pixel)) & 1);
-            uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
-            color = dmg_colors[color_i];
-          }
-          frame[pixel_index_y][pixel_index_x] = color;
-        }
-      }
+      drawBgWinTile(frame, tile_map_base, tile_row, tile_col, tile_row_index,
+                    tile_col_index, -(scroll_y % 8), -(scroll_x % 8));
     }
   }
 }
@@ -221,30 +181,8 @@ void Ppu::drawWin(std::array<std::array<uint16_t, 160>, 144> &frame) {
     for (int tile_col = 0; tile_col < 21; tile_col++) {
       uint16_t tile_row_index = tile_row * 32;
       uint16_t tile_col_index = tile_col;
-      uint8_t tile_index =
-          readVramBank0(tile_map_base + tile_row_index + tile_col_index);
-      uint16_t tile_start =
-          tile_data_base +
-          (signed_addressing ? (int8_t)tile_index : tile_index) * 16;
-
-      size_t top_y = tile_row * 8 + window_y;
-      size_t left_x = tile_col * 8 + window_x - 7;
-      for (int line_n = 0; line_n < 8; line_n++) {
-        uint8_t least_sig_bits = readVramBank0(tile_start + line_n * 2);
-        uint8_t most_sig_bits = readVramBank0(tile_start + line_n * 2 + 1);
-
-        for (int pixel = 0; pixel < 8; pixel++) {
-          size_t pixel_index_y = top_y + line_n;
-          size_t pixel_index_x = left_x + pixel;
-          if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
-
-          uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
-                              ((least_sig_bits >> (7 - pixel)) & 1);
-          uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
-          uint16_t color = dmg_colors[color_i];
-          frame[pixel_index_y][pixel_index_x] = color;
-        }
-      }
+      drawBgWinTile(frame, tile_map_base, tile_row, tile_col, tile_row_index,
+                    tile_col_index, window_y, window_x - 7);
     }
   }
 }
@@ -298,6 +236,54 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
           frame[pixel_index_y][pixel_index_x] = color;
         }
       }
+    }
+  }
+}
+
+void Ppu::drawBgWinTile(std::array<std::array<uint16_t, 160>, 144> &frame,
+                        uint16_t tile_map_base, int tile_row, int tile_col,
+                        uint16_t tile_row_index, uint16_t tile_col_index,
+                        int y_off, int x_off) {
+  bool signed_addressing = ((control >> 4) & 1) == 0;
+  uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
+
+  uint8_t tile_index =
+      readVramBank0(tile_map_base + tile_row_index + tile_col_index);
+
+  uint8_t attrs = 0;
+  if (cgb_mode) attrs = readVramBank1(0x9800 + tile_row_index + tile_col_index);
+
+  uint16_t tile_start =
+      tile_data_base +
+      (signed_addressing ? (int8_t)tile_index : tile_index) * 16;
+  if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
+
+  size_t top_y = tile_row * 8 + y_off;
+  size_t left_x = tile_col * 8 + x_off;
+  for (int line_n = 0; line_n < 8; line_n++) {
+    uint8_t least_sig_bits = readVramBank0(tile_start + line_n * 2);
+    uint8_t most_sig_bits = readVramBank0(tile_start + line_n * 2 + 1);
+
+    for (int pixel = 0; pixel < 8; pixel++) {
+      size_t pixel_index_y = top_y + line_n;
+      size_t pixel_index_x = left_x + pixel;
+      if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
+
+      uint16_t color;
+      if (cgb_mode) {
+        uint8_t palette_num = attrs & 0b111;
+        uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+                            ((least_sig_bits >> (7 - pixel)) & 1);
+        uint8_t color_i = palette_num * 8 + palette_i * 2;
+        color = (((uint16_t)cgb_bg_palette[color_i + 1]) << 8) |
+                cgb_bg_palette[color_i];
+      } else {
+        uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+                            ((least_sig_bits >> (7 - pixel)) & 1);
+        uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
+        color = dmg_colors[color_i];
+      }
+      frame[pixel_index_y][pixel_index_x] = color;
     }
   }
 }
