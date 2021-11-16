@@ -78,6 +78,14 @@ class Ppu {
     return bank + (addr - 0x8000);
   }
 
+  uint8_t readVramBank0(const uint16_t addr) const {
+    return vram[addr - 0x8000];
+  }
+
+  uint8_t readVramBank1(const uint16_t addr) const {
+    return vram[addr - 0x8000 + 0x2000];
+  }
+
   void drawBg(std::array<std::array<uint16_t, 160>, 144> &frame);
   void drawWin(std::array<std::array<uint16_t, 160>, 144> &frame);
   void drawObj(std::array<std::array<uint16_t, 160>, 144> &frame);
