@@ -1,7 +1,5 @@
 #include "bus.h"
 
-#include <iomanip>
-#include <iostream>
 #include <utility>
 
 void Bus::tick(int cpu_tcycles) {
@@ -69,7 +67,7 @@ uint8_t Bus::read(uint16_t addr) {
     return wram[addr - 0xC000];
   } else if (addr >= 0xD000 && addr < 0xE000) {
     size_t bank = 0x1000 * (cgb_mode ? wram_bank : 0);
-    return wram[bank + (addr - 0xC000)];
+    return wram[bank + (addr - 0xD000)];
   } else if (addr >= 0xE000 && addr < 0xFE00) {
     // TODO: Echo RAM
   } else if (addr >= 0xFE00 && addr < 0xFEA0) {
@@ -94,7 +92,7 @@ void Bus::write(uint16_t addr, uint8_t data) {
     wram[addr - 0xC000] = data;
   } else if (addr >= 0xD000 && addr < 0xE000) {
     size_t bank = 0x1000 * (cgb_mode ? wram_bank : 0);
-    wram[bank + (addr - 0xC000)] = data;
+    wram[bank + (addr - 0xD000)] = data;
   } else if (addr >= 0xE000 && addr < 0xFE00) {
     // TODO: Echo RAM
   } else if (addr >= 0xFE00 && addr < 0xFEA0) {
@@ -198,6 +196,7 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
     ppu.write(addr, data);
   } else if (addr == 0xFF70) {
     wram_bank = data & 0b111;
+    if (wram_bank == 0) wram_bank = 1;
   }
 }
 

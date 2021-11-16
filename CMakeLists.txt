@@ -19,6 +19,7 @@ set(SOURCES
     src/ppu.cpp
     src/mbc/mbc1.cpp
     src/mbc/mbc3.cpp
+    src/mbc/mbc5.cpp
     src/main.cpp
 )
 
