@@ -131,8 +131,8 @@ void Ppu::write(uint16_t addr, uint8_t data) {
         cgb_bg_palette_index = (cgb_bg_palette_index + 1) % 0x40;
       break;
     case 0xFF6A:
-      cgb_bg_palette_auto_incr = data >> 7;
-      cgb_bg_palette_index = data & 0x3F;
+      cgb_obj_palette_auto_incr = data >> 7;
+      cgb_obj_palette_index = data & 0x3F;
       break;
     case 0xFF6B:
       cgb_obj_palette[cgb_obj_palette_index] = data;
@@ -193,6 +193,7 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
 
   bool large_obj = (control >> 2) & 1;
   for (int oam_index = 0; oam_index < 40; oam_index++) {
+    // TODO: Perhaps factor this out to drawTile()
     uint8_t y = oam[oam_index * 4 + 0];
     uint8_t x = oam[oam_index * 4 + 1];
     if (x == 0 || x >= 168 || (large_obj && y == 0) || (!large_obj && y <= 8))
@@ -206,12 +207,14 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
     bool bg_win_over_obj = (!cgb_mode || (control & 1)) && ((attrs >> 7) & 1);
     bool y_flip = (attrs >> 6) & 1;
     bool x_flip = (attrs >> 5) & 1;
-    bool palette_num = (attrs >> 4) & 1;
+    uint8_t palette_num = cgb_mode ? (attrs & 0b111) : ((attrs >> 4) & 1);
 
     int n_tiles = (large_obj ? 2 : 1);
     for (int tile = 0; tile < n_tiles; tile++) {
       uint16_t tile_start =
           0x8000 + (tile_index + (y_flip ? (n_tiles - tile - 1) : tile)) * 16;
+      if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
+
       for (int line_index = 0; line_index < 8; line_index++) {
         int line_n = y_flip ? 7 - line_index : line_index;
         uint8_t least_sig_bits = readVramBank0(tile_start + line_n * 2);
@@ -230,9 +233,16 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
           uint8_t palette_i = (((most_sig_bits >> pixel_num) & 1) << 1) |
                               ((least_sig_bits >> pixel_num) & 1);
           if (palette_i == 0) continue;
-          uint8_t color_i =
-              (dmg_obj_palette[palette_num] >> (palette_i * 2)) & 0b11;
-          uint16_t color = dmg_colors[color_i];
+          uint16_t color;
+          if (cgb_mode) {
+            uint8_t color_i = palette_num * 8 + palette_i * 2;
+            color = (((uint16_t)cgb_obj_palette[color_i + 1]) << 8) |
+                    cgb_obj_palette[color_i];
+          } else {
+            uint8_t color_i =
+                (dmg_obj_palette[palette_num] >> (palette_i * 2)) & 0b11;
+            color = dmg_colors[color_i];
+          }
           frame[pixel_index_y][pixel_index_x] = color;
         }
       }
@@ -244,6 +254,8 @@ void Ppu::drawBgWinTile(std::array<std::array<uint16_t, 160>, 144> &frame,
                         uint16_t tile_map_base, int tile_row, int tile_col,
                         uint16_t tile_row_index, uint16_t tile_col_index,
                         int y_off, int x_off) {
+  // TODO: BG-to-OAM Priority
+  // TODO: Vertical and horizontal flip
   bool signed_addressing = ((control >> 4) & 1) == 0;
   uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
 
