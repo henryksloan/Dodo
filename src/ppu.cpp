@@ -173,6 +173,7 @@ void Ppu::drawWin(std::array<std::array<uint16_t, 160>, 144> &frame) {
   bool bg_win_enable = !cgb_mode || (control & 1);
   if (!win_enable || !bg_win_enable) return;
 
+  // TODO: Fix window palettes
   bool signed_addressing = ((control >> 4) & 1) == 0;
   uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
   uint16_t tile_map_base = ((control >> 6) & 1) ? 0x9C00 : 0x9800;
