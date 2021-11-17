@@ -15,9 +15,9 @@ void Bus::tick(int cpu_tcycles) {
   // TODO: Tick other devices
 }
 
-void Bus::reset(bool cgb_mode) {
-  this->cgb_mode = cgb_mode;
-  this->ppu.setCgbMode(cgb_mode);
+void Bus::reset(bool cgb_mode_) {
+  this->cgb_mode = cgb_mode_;
+  this->ppu.setCgbMode(cgb_mode_);
 
   // TODO: Reset devices
   // TODO: https://gbdev.io/pandocs/Power_Up_Sequence.html
@@ -113,8 +113,9 @@ uint8_t Bus::ioRead(uint16_t addr) {
     // Don't ask me why
     uint8_t masked_actions = select_action_buttons ? 0 : action_buttons_pressed;
     uint8_t masked_dirs = select_dir_buttons ? 0 : dir_buttons_pressed;
-    return (select_action_buttons << 5) | (select_dir_buttons << 4) |
-           masked_actions | masked_dirs;
+    return static_cast<uint8_t>(select_action_buttons << 5) |
+           static_cast<uint8_t>(select_dir_buttons << 4) | masked_actions |
+           masked_dirs;
   } else if (addr == 0xFF01 || addr == 0xFF02) {
     // TODO: Communication
     return serial_temp[addr - 0xFF01];
@@ -129,7 +130,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
     return ppu.read(addr);
   } else if (addr == 0xFF4D) {
-    return (double_speed << 7) | prepare_speed_switch;
+    return static_cast<uint8_t>(double_speed << 7) | prepare_speed_switch;
   } else if (addr == 0xFF4F) {
     return ppu.getVramBank();
   } else if (addr == 0xFF50) {
@@ -137,7 +138,8 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr >= 0xFF51 && addr <= 0xFF54) {
     return hdma_src_dst[addr - 0xFF51];
   } else if (addr == 0xFF55) {
-    return ((hdma_mode != HdmaMode::kHdmaNone) << 7) | hdma_len;
+    return static_cast<uint8_t>((hdma_mode != HdmaMode::kHdmaNone) << 7) |
+           hdma_len;
   } else if (addr >= 0xFF68 && addr <= 0xFF6B) {
     return ppu.read(addr);
   } else if (addr == 0xFF70) {
@@ -164,7 +166,7 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
   } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
     // TODO :Waveform RAM
   } else if (addr == 0xFF46) {
-    oamdma((uint16_t)data * 0x100);
+    oamdma(static_cast<uint16_t>(data) * 0x100);
   } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
     ppu.write(addr, data);
   } else if (addr == 0xFF4D) {
@@ -179,8 +181,9 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
     hdma_src_dst[addr - 0xFF51] = data & mask[addr - 0xFF51];
   } else if (addr == 0xFF55) {
     hdma_len = data & ~(1 << 7);
-    hdma_src = (((uint16_t)hdma_src_dst[0]) << 8) | hdma_src_dst[1];
-    hdma_dst = 0x8000 | (((uint16_t)hdma_src_dst[2]) << 8) | hdma_src_dst[3];
+    hdma_src = static_cast<uint16_t>(hdma_src_dst[0] << 8) | hdma_src_dst[1];
+    hdma_dst = 0x8000 | static_cast<uint16_t>((hdma_src_dst[2]) << 8) |
+               hdma_src_dst[3];
     // TODO: Validate source
 
     bool bit_7 = data >> 7;
@@ -236,7 +239,7 @@ void Bus::switchSpeed() {
 }
 
 void Bus::oamdma(uint16_t addr) {
-  for (int i = 0; i < 0x9F; i++) {
+  for (uint16_t i = 0; i < 0x9F; i++) {
     ppu.writeOam(0xFE00 + i, this->read(addr + i));
   }
 }

@@ -34,9 +34,9 @@ class Ppu {
   void writeOam(uint16_t addr, uint8_t data) { oam[addr - 0xFE00] = data; }
 
   bool getVramBank() const { return vram_bank; }
-  void setVramBank(bool vram_bank) { this->vram_bank = vram_bank; }
+  void setVramBank(bool vram_bank_) { this->vram_bank = vram_bank_; }
 
-  void setCgbMode(bool cgb_mode) { this->cgb_mode = cgb_mode; }
+  void setCgbMode(bool cgb_mode_) { this->cgb_mode = cgb_mode_; }
 
   bool inHblank() { return stat_mode == kModeHblank; }
 
@@ -91,9 +91,9 @@ class Ppu {
   void drawObj(std::array<std::array<uint16_t, 160>, 144> &frame);
 
   void drawBgWinTile(std::array<std::array<uint16_t, 160>, 144> &frame,
-                     uint16_t tile_map_base, int tile_row, int tile_col,
+                     uint16_t tile_map_base, size_t tile_row, size_t tile_col,
                      uint16_t tile_row_index, uint16_t tile_col_index,
-                     int y_off, int x_off);
+                     size_t y_off, size_t x_off);
 };
 
 #endif  // DODO_PPU_H_

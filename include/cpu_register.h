@@ -5,7 +5,7 @@
 
 class CpuRegister {
  public:
-  uint16_t get() const { return (hi << 8) | lo; };
+  uint16_t get() const { return static_cast<uint16_t>(hi << 8) | lo; };
   void set(const uint16_t val) {
     lo = val & 0xFF;
     hi = val >> 8;

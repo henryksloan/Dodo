@@ -35,7 +35,7 @@ uint8_t Timer::read(uint16_t addr) {
     case 0xFF06:
       return modulo;
     case 0xFF07:
-      return (enable << 2) | clock_select;
+      return static_cast<uint8_t>(enable << 2) | clock_select;
   }
   return 0;
 }

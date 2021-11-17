@@ -27,7 +27,7 @@ std::optional<std::string> Gameboy::loadCartridge(std::string filename) {
   file.seekg(0, std::ios::beg);
 
   std::vector<uint8_t> data;
-  data.reserve(file_size);
+  data.reserve(static_cast<size_t>(file_size));
 
   data.insert(data.begin(), std::istream_iterator<uint8_t>(file),
               std::istream_iterator<uint8_t>());

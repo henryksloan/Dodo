@@ -27,10 +27,10 @@ add_executable(dodo ${SOURCES})
 
 target_include_directories(dodo PRIVATE ${PROJECT_SOURCE_DIR}/include)
 
-target_link_libraries(dodo ${SDL2_LIBRARIES})
+target_link_libraries(dodo PRIVATE ${SDL2_LIBRARIES})
 
-if(MSVC)
-  target_compile_options(dodo PRIVATE /W4 /WX)
-else()
-  target_compile_options(dodo PRIVATE -Wall -Wextra -Wpedantic -Werror -Wno-unused-variable)
-endif()
+add_library(project_warnings INTERFACE)
+include(cmake/CompilerWarnings.cmake)
+set_project_warnings(project_warnings)
+
+target_link_libraries(dodo INTERFACE project_warnings)
