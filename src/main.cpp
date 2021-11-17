@@ -37,8 +37,14 @@ int main(int argc, char **argv) {
   while (true) {
     Uint64 start = SDL_GetPerformanceCounter();
 
-    while (!gameboy.step())
-      ;
+    size_t n_steps = 0;
+    while (!gameboy.step()) {
+      n_steps++;
+      if (n_steps % 10000 == 0) {
+        SDL_PollEvent(&event);
+        if (event.type == SDL_QUIT) break;
+      }
+    }
 
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) break;
