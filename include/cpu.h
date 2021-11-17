@@ -79,8 +79,8 @@ class Cpu {
   InstrFunc swap(getter src, setter dst);
   InstrFunc sra(getter src, setter dst);
   InstrFunc srl(getter src, setter dst);
-  InstrFunc bit(getter src, int bit_n);
-  InstrFunc set_reset(getter src, setter dst, int bit_n, bool set);
+  InstrFunc bit(getter src, size_t bit_n);
+  InstrFunc set_reset(getter src, setter dst, size_t bit_n, bool set);
   int execute_cb();
   InstrFunc jump(getter16 src, int condition_off = 0,
                  bool negate_condition = false);
@@ -92,8 +92,6 @@ class Cpu {
                 bool negate_condition = false);
   InstrFunc rst(uint8_t addr);
 };
-
-#endif  // DODO_CPU_H_
 
 // clang-format off
 const int opcodes_mcycles[0x100] = {
@@ -134,3 +132,5 @@ const int cb_opcodes_mcycles[0x100] = {
   2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2
 };
 // clang-format on
+
+#endif  // DODO_CPU_H_

@@ -8,7 +8,8 @@ uint8_t Mbc1::readRomLo(uint16_t addr) {
 }
 
 uint8_t Mbc1::readRomHi(uint16_t addr) {
-  size_t bank = (ram_bank_or_rom_bank_hi << 5) | rom_bank_lo;
+  uint16_t bank =
+      static_cast<uint16_t>(ram_bank_or_rom_bank_hi << 5) | rom_bank_lo;
   return rom[(bank * 0x4000) + addr];
 }
 

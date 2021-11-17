@@ -19,8 +19,9 @@ int Cpu::step() {
     return 1;
   }
 
+  // TODO: Make this part of Bus (maybe a class if it should be more complex)
   if (bus->read(0xFF02) == 0x81) {
-    char c = bus->read(0xFF01);
+    char c = static_cast<char>(bus->read(0xFF01));
     std::cout << c;
     bus->write(0xFF02, 0);
   }
@@ -76,7 +77,7 @@ bool Cpu::check_for_interrupt() {
   bus->clear_interrupt(bit_n);
   sp.set(sp.get() - 2);
   bus->write16(sp.get(), pc.get());
-  pc.set(0x0040 | (bit_n << 3));
+  pc.set(0x0040 | static_cast<uint16_t>(bit_n << 3));
 
   return true;
 }
@@ -113,7 +114,7 @@ void Cpu::initOpcodeTables() {
   // All the opcodes with hi nybble 4, 5, 6, and 7, excluding $76 (HALT)
   auto src_8_bit =
       getters{get_b, get_c, get_d, get_e, get_h, get_l, get_mem_hl, get_a};
-  for (auto lo = 0; lo < (int)src_8_bit.size(); lo++) {
+  for (size_t lo = 0; lo < src_8_bit.size(); lo++) {
     auto &src = src_8_bit[lo];
     opcodes[0x40 | lo] = ld(set_b, src);
     opcodes[0x50 | lo] = ld(set_d, src);
@@ -156,7 +157,7 @@ void Cpu::initOpcodeTables() {
       getters{get_mem_bc, get_mem_de, get_mem_hl_inc, get_mem_hl_dec};
   auto dst_8_bit_mem =
       setters{set_mem_bc, set_mem_de, set_mem_hl_inc, set_mem_hl_dec};
-  for (int i = 0; i < 4; i++) {
+  for (size_t i = 0; i < 4; i++) {
     opcodes[(i * 0x10) | 0x2] = ld(dst_8_bit_mem[i], get_a);
     opcodes[(i * 0x10) | 0xA] = ld(set_a, src_8_bit_mem[i]);
   }
@@ -169,7 +170,7 @@ void Cpu::initOpcodeTables() {
   };
   auto dst_8_bit_lo_6 = setters{set_b, set_d, set_h, set_mem_hl};
   auto dst_8_bit_lo_e = setters{set_c, set_e, set_l, set_a};
-  for (int i = 0; i < 4; i++) {
+  for (size_t i = 0; i < 4; i++) {
     opcodes[(i * 0x10) | 0x6] = ld(dst_8_bit_lo_6[i], d8);
     opcodes[(i * 0x10) | 0xE] = ld(dst_8_bit_lo_e[i], d8);
   }
@@ -197,7 +198,6 @@ void Cpu::initOpcodeTables() {
   opcodes[0xF2] = ld(set_a, get_io_c);
 
   // $EA, $FA
-  // TODO: Verify that this does the proper little-endian addressing
   const auto get_mem_a16 = [this] {
     uint16_t temp = pc.get();
     pc.set(temp + 2);
@@ -238,7 +238,7 @@ void Cpu::initOpcodeTables() {
   // $C1, $D1, $E1, $F1, $C5, $D5, $E5, $F5
   const auto push_regs = getters16{get_bc, get_de, get_hl, get_af};
   const auto pop_regs = setters16{set_bc, set_de, set_hl, set_af};
-  for (int i = 0xC; i <= 0xF; i++) {
+  for (size_t i = 0xC; i <= 0xF; i++) {
     opcodes[(i * 0x10) | 0x1] = pop(pop_regs[i - 0xC]);
     opcodes[(i * 0x10) | 0x5] = push(push_regs[i - 0xC]);
   }
@@ -250,7 +250,7 @@ void Cpu::initOpcodeTables() {
   // === 8-bit arithmetic/logic instructions ===
 
   // All the opcodes with hi nybble 8, 9, A, and B
-  for (int lo = 0; lo < (int)src_8_bit.size(); lo++) {
+  for (size_t lo = 0; lo < src_8_bit.size(); lo++) {
     auto &src = src_8_bit[lo];
     opcodes[0x80 | lo] = add(src, false);
     opcodes[0x90 | lo] = sub(src, false, false);
@@ -275,7 +275,7 @@ void Cpu::initOpcodeTables() {
   // ${0,1,2,3}{4,5,C,D}
   auto src_8_bit_lo_6 = getters{get_b, get_d, get_h, get_mem_hl};
   auto src_8_bit_lo_e = getters{get_c, get_e, get_l, get_a};
-  for (int i = 0; i < 4; i++) {
+  for (size_t i = 0; i < 4; i++) {
     opcodes[(i * 0x10) | 0x4] =
         step_op(src_8_bit_lo_6[i], dst_8_bit_lo_6[i], true);
     opcodes[(i * 0x10) | 0x5] =
@@ -295,7 +295,7 @@ void Cpu::initOpcodeTables() {
   // ${0,1,2,3}{3,9,B}
   auto src_16_bit_arith = getters16{get_bc, get_de, get_hl, get_sp};
   auto dst_16_bit_arith = setters16{set_bc, set_de, set_hl, set_sp};
-  for (int i = 0; i < 4; i++) {
+  for (size_t i = 0; i < 4; i++) {
     opcodes[(i * 0x10) | 0x3] =
         step16_op(src_16_bit_arith[i], dst_16_bit_arith[i], true);
     opcodes[(i * 0x10) | 0x9] = add_hl(src_16_bit_arith[i]);
@@ -316,7 +316,7 @@ void Cpu::initOpcodeTables() {
   auto dst_8_bit =
       setters{set_b, set_c, set_d, set_e, set_h, set_l, set_mem_hl, set_a};
   // $CB suffix ${0,1,2,3}*
-  for (int lo = 0; lo < (int)src_8_bit.size(); lo++) {
+  for (size_t lo = 0; lo < src_8_bit.size(); lo++) {
     auto &src = src_8_bit[lo];
     auto &dst = dst_8_bit[lo];
     cb_opcodes[0x00 | lo] = rlc(src, dst, false);
@@ -331,10 +331,10 @@ void Cpu::initOpcodeTables() {
 
   // === Single-bit operation instructions ===
   // $CB suffix ${4-F}*
-  for (int lo = 0; lo < (int)src_8_bit.size(); lo++) {
+  for (size_t lo = 0; lo < src_8_bit.size(); lo++) {
     auto &src = src_8_bit[lo];
     auto &dst = dst_8_bit[lo];
-    for (int i = 0; i < 4; i++) {
+    for (size_t i = 0; i < 4; i++) {
       cb_opcodes[((0x4 + i) * 0x10) | lo] = bit(src, 2 * i);
       cb_opcodes[((0x4 + i) * 0x10) | (lo + 0x8)] = bit(src, 2 * i + 1);
       cb_opcodes[((0x8 + i) * 0x10) | lo] = set_reset(src, dst, 2 * i, false);
@@ -372,7 +372,6 @@ void Cpu::initOpcodeTables() {
   opcodes[0xFB] = [=, this] { ime = true; };
 
   // === Jump instructions ===
-  // TODO: Verify that this does the proper little-endian addressing
   const auto get_a16 = d16;
   // $C3, $E9, ${C,D}{2,A}
   opcodes[0xC3] = jump(get_a16);
@@ -401,14 +400,15 @@ void Cpu::initOpcodeTables() {
   opcodes[0xC8] = ret(false, kFlagOffZ, false);
   opcodes[0xD8] = ret(false, kFlagOffC, false);
   // ${C,D,E,F}{7,F}
-  for (int i = 0; i < 4; i++) {
-    opcodes[((0xC + i) * 0x10) | 0x7] = rst(0x10 * i);
-    opcodes[((0xC + i) * 0x10) | 0xF] = rst(0x10 * i + 0x8);
+  for (size_t i = 0; i < 4; i++) {
+    opcodes[((0xC + i) * 0x10) | 0x7] = rst(static_cast<uint8_t>(0x10 * i));
+    opcodes[((0xC + i) * 0x10) | 0xF] =
+        rst(static_cast<uint8_t>(0x10 * i + 0x8));
   }
 }
 
 Cpu::InstrFunc Cpu::ld(setter dst, getter src) {
-  return [=, this] { dst(src()); };
+  return [=] { dst(src()); };
 }
 
 Cpu::InstrFunc Cpu::push(getter16 src) {
@@ -432,7 +432,7 @@ Cpu::InstrFunc Cpu::add(getter src, bool carry) {
     uint16_t result = a + b;
     uint8_t carry_if_any = carry && getFlag(kFlagOffC);
     result += carry_if_any;
-    af.set_hi(result);
+    af.set_hi(static_cast<uint8_t>(result));
 
     setFlag(kFlagOffZ, (result & 0xFF) == 0);
     setFlag(kFlagOffN, false);
@@ -449,14 +449,13 @@ Cpu::InstrFunc Cpu::sub(getter src, bool carry, bool compare) {
     uint8_t carry_if_any = carry && getFlag(kFlagOffC);
     result -= carry_if_any;
     if (!compare) {
-      af.set_hi(result);
+      af.set_hi(static_cast<uint8_t>(result));
     }
 
     setFlag(kFlagOffZ, (result & 0xFF) == 0);
     setFlag(kFlagOffN, true);
-    // TODO: Is this correct?
     setFlag(kFlagOffH, ((b & 0xF) + carry_if_any) > (a & 0xF));
-    setFlag(kFlagOffC, ((uint16_t)b + carry_if_any) > a);
+    setFlag(kFlagOffC, (static_cast<uint16_t>(b) + carry_if_any) > a);
   };
 };
 
@@ -478,7 +477,7 @@ Cpu::InstrFunc Cpu::step_op(getter get, setter set, bool incr) {
   return [=, this] {
     int8_t diff = (incr * 2) - 1;  // true => 1, false => -1
     uint8_t a = get();
-    uint8_t result = a + diff;
+    uint8_t result = static_cast<uint8_t>(a + diff);
     set(result);
 
     setFlag(kFlagOffZ, result == 0);
@@ -525,10 +524,10 @@ Cpu::InstrFunc Cpu::cpl() {
 }
 
 Cpu::InstrFunc Cpu::step16_op(getter16 get, setter16 set, bool incr) {
-  return [=, this] {
+  return [=] {
     int16_t diff = (incr * 2) - 1;  // true => 1, false => -1
     uint16_t a = get();
-    uint16_t result = a + diff;
+    uint16_t result = static_cast<uint16_t>(a + diff);
     set(result);
   };
 }
@@ -538,7 +537,7 @@ Cpu::InstrFunc Cpu::add_hl(getter16 src) {
     uint16_t a = hl.get();
     uint16_t b = src();
     uint32_t result = a + b;
-    hl.set(result);
+    hl.set(static_cast<uint16_t>(result));
 
     setFlag(kFlagOffN, false);
     setFlag(kFlagOffH, ((a & 0x7ff) + (b & 0x7ff)) > 0x7ff);
@@ -549,10 +548,10 @@ Cpu::InstrFunc Cpu::add_hl(getter16 src) {
 Cpu::InstrFunc Cpu::add16_imm(getter16 src, setter16 dst) {
   return [=, this] {
     uint16_t a = src();
-    int8_t b = bus->read(pc.get());
+    int8_t b = static_cast<int8_t>(bus->read(pc.get()));
     pc.set(pc.get() + 1);
-    uint32_t result = a + b;
-    dst(result);
+    uint32_t result = static_cast<uint32_t>(a + b);
+    dst(static_cast<uint16_t>(result));
 
     setFlag(kFlagOffZ, false);
     setFlag(kFlagOffN, false);
@@ -565,7 +564,7 @@ Cpu::InstrFunc Cpu::rlc(getter src, setter dst, bool reg_a) {
   return [=, this] {
     uint8_t a = src();
     bool top = (a >> 7) == 1;
-    a = (a << 1) | top;
+    a = static_cast<uint8_t>(a << 1) | top;
     dst(a);
 
     setFlag(kFlagOffZ, !reg_a && (a == 0));
@@ -580,7 +579,7 @@ Cpu::InstrFunc Cpu::rl(getter src, setter dst, bool reg_a) {
     bool old_carry = getFlag(kFlagOffC);
     uint8_t a = src();
     bool top = (a >> 7) == 1;
-    a = (a << 1) | old_carry;
+    a = static_cast<uint8_t>(a << 1) | old_carry;
     dst(a);
 
     setFlag(kFlagOffZ, !reg_a && (a == 0));
@@ -594,7 +593,7 @@ Cpu::InstrFunc Cpu::rrc(getter src, setter dst, bool reg_a) {
   return [=, this] {
     uint8_t a = src();
     bool bottom = a & 1;
-    a = (bottom << 7) | (a >> 1);
+    a = static_cast<uint8_t>(bottom << 7) | static_cast<uint8_t>(a >> 1);
     dst(a);
 
     setFlag(kFlagOffZ, !reg_a && (a == 0));
@@ -609,7 +608,7 @@ Cpu::InstrFunc Cpu::rr(getter src, setter dst, bool reg_a) {
     bool old_carry = getFlag(kFlagOffC);
     uint8_t a = src();
     bool bottom = a & 1;
-    a = (old_carry << 7) | (a >> 1);
+    a = static_cast<uint8_t>(old_carry << 7) | static_cast<uint8_t>(a >> 1);
     dst(a);
 
     setFlag(kFlagOffZ, !reg_a && (a == 0));
@@ -623,7 +622,7 @@ Cpu::InstrFunc Cpu::sla(getter src, setter dst) {
   return [=, this] {
     uint8_t a = src();
     bool top = (a >> 7) == 1;
-    a = a << 1;
+    a = static_cast<uint8_t>(a << 1);
     dst(a);
 
     setFlag(kFlagOffZ, a == 0);
@@ -637,7 +636,7 @@ Cpu::InstrFunc Cpu::swap(getter src, setter dst) {
   return [=, this] {
     uint8_t a = src();
     uint8_t temp = a & 0xFF;
-    a = (temp << 4) | (a >> 4);
+    a = static_cast<uint8_t>(temp << 4) | static_cast<uint8_t>(a >> 4);
     dst(a);
 
     setFlag(kFlagOffZ, a == 0);
@@ -676,7 +675,7 @@ Cpu::InstrFunc Cpu::srl(getter src, setter dst) {
   };
 }
 
-Cpu::InstrFunc Cpu::bit(getter src, int bit_n) {
+Cpu::InstrFunc Cpu::bit(getter src, size_t bit_n) {
   return [=, this] {
     bool val = (src() >> bit_n) & 1;
 
@@ -686,8 +685,8 @@ Cpu::InstrFunc Cpu::bit(getter src, int bit_n) {
   };
 }
 
-Cpu::InstrFunc Cpu::set_reset(getter src, setter dst, int bit_n, bool set) {
-  return [=, this] {
+Cpu::InstrFunc Cpu::set_reset(getter src, setter dst, size_t bit_n, bool set) {
+  return [=] {
     uint8_t a = src();
     a &= ~(1 << bit_n);
     if (set) a |= (1 << bit_n);
@@ -715,9 +714,9 @@ Cpu::InstrFunc Cpu::jump(getter16 src, int condition_off /* = 0 */,
 Cpu::InstrFunc Cpu::jump_relative(getter src, int condition_off /* = 0 */,
                                   bool negate_condition /* = false */) {
   return [=, this] {
-    int8_t off = src();
+    int8_t off = static_cast<int8_t>(src());
     if ((condition_off == 0) || (getFlag(condition_off) != negate_condition)) {
-      pc.set(pc.get() + off);
+      pc.set(static_cast<uint16_t>(pc.get() + off));
     }
   };
 }

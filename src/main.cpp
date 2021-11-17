@@ -19,10 +19,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // for (int i = 0; i < 8000000; i++) {
-  //   gameboy.step();
-  // }
-
   SDL_Init(SDL_INIT_VIDEO);
 
   SDL_Window *window = SDL_CreateWindow("Dodo", SDL_WINDOWPOS_UNDEFINED,
@@ -38,29 +34,32 @@ int main(int argc, char **argv) {
                                            SDL_TEXTUREACCESS_TARGET, 160, 144);
 
   SDL_Event event;
-  int tick_counter = 0;
   while (true) {
-    tick_counter += gameboy.step();
-    if (tick_counter > 702240 / 4) {
-      tick_counter = 0;
-    } else {
-      continue;
-    }
-
     Uint64 start = SDL_GetPerformanceCounter();
+
+    size_t n_steps = 0;
+    while (!gameboy.step()) {
+      n_steps++;
+      if (n_steps % 10000 == 0) {
+        SDL_PollEvent(&event);
+        if (event.type == SDL_QUIT) break;
+      }
+    }
 
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) break;
 
     const Uint8 *key_state = SDL_GetKeyboardState(NULL);
-    uint8_t action_keys = (!key_state[SDL_SCANCODE_RETURN] << 3) |
-                          (!key_state[SDL_SCANCODE_RSHIFT] << 2) |
-                          (!key_state[SDL_SCANCODE_Z] << 1) |
-                          (!key_state[SDL_SCANCODE_X]);
-    uint8_t dir_keys = (!key_state[SDL_SCANCODE_DOWN] << 3) |
-                       (!key_state[SDL_SCANCODE_UP] << 2) |
-                       (!key_state[SDL_SCANCODE_LEFT] << 1) |
-                       (!key_state[SDL_SCANCODE_RIGHT]);
+    uint8_t action_keys =
+        static_cast<uint8_t>(!key_state[SDL_SCANCODE_RETURN] << 3) |
+        static_cast<uint8_t>(!key_state[SDL_SCANCODE_RSHIFT] << 2) |
+        static_cast<uint8_t>(!key_state[SDL_SCANCODE_Z] << 1) |
+        static_cast<uint8_t>(!key_state[SDL_SCANCODE_X]);
+    uint8_t dir_keys =
+        static_cast<uint8_t>(!key_state[SDL_SCANCODE_DOWN] << 3) |
+        static_cast<uint8_t>(!key_state[SDL_SCANCODE_UP] << 2) |
+        static_cast<uint8_t>(!key_state[SDL_SCANCODE_LEFT] << 1) |
+        static_cast<uint8_t>(!key_state[SDL_SCANCODE_RIGHT]);
     gameboy.setButtonsPressed(action_keys, dir_keys);
 
     auto frame = gameboy.frameTest();
@@ -70,12 +69,13 @@ int main(int argc, char **argv) {
 
     Uint64 end = SDL_GetPerformanceCounter();
 
-    float elapsed_ms =
-        (end - start) / (float)SDL_GetPerformanceFrequency() * 1000.0f;
+    float elapsed_ms = static_cast<float>(end - start) /
+                       static_cast<float>(SDL_GetPerformanceFrequency()) *
+                       1000.0f;
 
     // Cap to 60 FPS
     if (elapsed_ms < 16.666f) {
-      SDL_Delay(floor(16.666f - elapsed_ms));
+      SDL_Delay(static_cast<Uint32>(16.666f - elapsed_ms));
     }
   }
 

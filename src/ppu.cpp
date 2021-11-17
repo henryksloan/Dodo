@@ -20,30 +20,33 @@ uint8_t Ppu::tick(int ppu_ticks) {
       if (this->compare_interrupt && (this->lcd_y == this->lcd_y_compare)) {
         interrupts |= kIntMaskStat;
       }
-    }
-  }
 
-  if (this->lcd_y >= 144) {
-    // VBlank line
-    this->stat_mode = kModeVblank;
-    if (this->lcd_y == 144) {
-      interrupts |= kIntMaskVblank;
-      if (this->mode_1_interrupt) interrupts |= kIntMaskStat;
+      if (this->lcd_y >= 144 && this->stat_mode != kModeVblank) {
+        // VBlank line
+        this->stat_mode = kModeVblank;
+        interrupts |= kIntMaskVblank;
+        if (this->mode_1_interrupt) interrupts |= kIntMaskStat;
+      }
     }
-  } else {
-    // Non-VBlank line
-    if (this->ppu_tick_divider < 80) {
-      this->stat_mode = kModeOamSearch;
-      if (this->mode_2_interrupt && this->ppu_tick_divider == 0)
-        interrupts |= kIntMaskStat;
-    } else if (this->ppu_tick_divider < 80 + 172) {
-      this->stat_mode = kModeTransfer;
-      if (this->mode_3_interrupt && this->ppu_tick_divider == 80)
-        interrupts |= kIntMaskStat;
-    } else {
-      this->stat_mode = kModeHblank;
-      if (this->mode_0_interrupt && this->ppu_tick_divider == 80 + 172)
-        interrupts |= kIntMaskStat;
+
+    if (this->lcd_y < 144) {
+      // Non-VBlank line
+      if (this->ppu_tick_divider < 80) {
+        if (this->stat_mode != kModeOamSearch) {
+          this->stat_mode = kModeOamSearch;
+          if (this->mode_2_interrupt) interrupts |= kIntMaskStat;
+        }
+      } else if (this->ppu_tick_divider < 80 + 172) {
+        if (this->stat_mode != kModeTransfer) {
+          this->stat_mode = kModeTransfer;
+          if (this->mode_3_interrupt) interrupts |= kIntMaskStat;
+        }
+      } else {
+        if (this->stat_mode != kModeHblank) {
+          this->stat_mode = kModeHblank;
+          if (this->mode_0_interrupt) interrupts |= kIntMaskStat;
+        }
+      }
     }
   }
 
@@ -55,9 +58,11 @@ uint8_t Ppu::read(uint16_t addr) {
     case 0xFF40:
       return control;
     case 0xFF41:
-      return (compare_interrupt << 6) | (mode_2_interrupt << 5) |
-             (mode_1_interrupt << 4) | (mode_0_interrupt << 3) |
-             ((lcd_y == lcd_y_compare) << 2) | stat_mode;
+      return static_cast<uint8_t>(compare_interrupt << 6) |
+             static_cast<uint8_t>(mode_2_interrupt << 5) |
+             static_cast<uint8_t>(mode_1_interrupt << 4) |
+             static_cast<uint8_t>(mode_0_interrupt << 3) |
+             static_cast<uint8_t>((lcd_y == lcd_y_compare) << 2) | stat_mode;
     case 0xFF42:
       return scroll_y;
     case 0xFF43:
@@ -158,8 +163,8 @@ void Ppu::drawBg(std::array<std::array<uint16_t, 160>, 144> &frame) {
 
   uint16_t tile_map_base = ((control >> 3) & 1) ? 0x9C00 : 0x9800;
 
-  for (int tile_row = 0; tile_row < 19; tile_row++) {
-    for (int tile_col = 0; tile_col < 21; tile_col++) {
+  for (uint16_t tile_row = 0; tile_row < 19; tile_row++) {
+    for (uint16_t tile_col = 0; tile_col < 21; tile_col++) {
       uint16_t tile_row_index = ((tile_row + (scroll_y / 8)) % 32) * 32;
       uint16_t tile_col_index = (tile_col + (scroll_x / 8)) % 32;
       drawBgWinTile(frame, tile_map_base, tile_row, tile_col, tile_row_index,
@@ -174,12 +179,10 @@ void Ppu::drawWin(std::array<std::array<uint16_t, 160>, 144> &frame) {
   if (!win_enable || !bg_win_enable) return;
 
   // TODO: Fix window palettes
-  bool signed_addressing = ((control >> 4) & 1) == 0;
-  uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
   uint16_t tile_map_base = ((control >> 6) & 1) ? 0x9C00 : 0x9800;
 
-  for (int tile_row = 0; tile_row < 19; tile_row++) {
-    for (int tile_col = 0; tile_col < 21; tile_col++) {
+  for (uint16_t tile_row = 0; tile_row < 19; tile_row++) {
+    for (uint16_t tile_col = 0; tile_col < 21; tile_col++) {
       uint16_t tile_row_index = tile_row * 32;
       uint16_t tile_col_index = tile_col;
       drawBgWinTile(frame, tile_map_base, tile_row, tile_col, tile_row_index,
@@ -189,18 +192,20 @@ void Ppu::drawWin(std::array<std::array<uint16_t, 160>, 144> &frame) {
 }
 
 void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
+  // TODO: Figure out why sprites disappear in Harvest Moon 2 when the window
+  // appears
   bool obj_enable = (control >> 1) & 1;
   if (!obj_enable) return;
 
   bool large_obj = (control >> 2) & 1;
-  for (int oam_index = 0; oam_index < 40; oam_index++) {
+  for (size_t oam_index = 0; oam_index < 40; oam_index++) {
     // TODO: Perhaps factor this out to drawTile()
     uint8_t y = oam[oam_index * 4 + 0];
     uint8_t x = oam[oam_index * 4 + 1];
     if (x == 0 || x >= 168 || (large_obj && y == 0) || (!large_obj && y <= 8))
       continue;
-    int16_t y_signed = (int16_t)y - 16;
-    int16_t x_signed = (int16_t)x - 8;
+    int16_t y_signed = static_cast<int16_t>(y) - 16;
+    int16_t x_signed = static_cast<int16_t>(x) - 8;
 
     uint8_t tile_index = oam[oam_index * 4 + 2];
     if (large_obj) tile_index &= ~1;
@@ -210,20 +215,26 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
     bool x_flip = (attrs >> 5) & 1;
     uint8_t palette_num = cgb_mode ? (attrs & 0b111) : ((attrs >> 4) & 1);
 
-    int n_tiles = (large_obj ? 2 : 1);
-    for (int tile = 0; tile < n_tiles; tile++) {
+    size_t n_tiles = (large_obj ? 2 : 1);
+    for (size_t tile = 0; tile < n_tiles; tile++) {
       uint16_t tile_start =
-          0x8000 + (tile_index + (y_flip ? (n_tiles - tile - 1) : tile)) * 16;
+          0x8000 +
+          static_cast<uint16_t>(
+              (tile_index + (y_flip ? (n_tiles - tile - 1) : tile)) * 16);
       if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
 
-      for (int line_index = 0; line_index < 8; line_index++) {
-        int line_n = y_flip ? 7 - line_index : line_index;
-        uint8_t least_sig_bits = readVramBank0(tile_start + line_n * 2);
-        uint8_t most_sig_bits = readVramBank0(tile_start + line_n * 2 + 1);
+      for (size_t line_index = 0; line_index < 8; line_index++) {
+        size_t line_n = y_flip ? 7 - line_index : line_index;
+        uint8_t least_sig_bits =
+            readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2));
+        uint8_t most_sig_bits =
+            readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2 + 1));
 
-        for (int pixel = 0; pixel < 8; pixel++) {
-          size_t pixel_index_y = y_signed + line_index + tile * 8;
-          size_t pixel_index_x = x_signed + pixel;
+        for (size_t pixel = 0; pixel < 8; pixel++) {
+          size_t pixel_index_y = static_cast<size_t>(
+              y_signed + static_cast<int>(line_index + tile * 8));
+          size_t pixel_index_x =
+              static_cast<size_t>(x_signed + static_cast<int>(pixel));
           if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
 
           if (bg_win_over_obj && frame[pixel_index_y][pixel_index_x] !=
@@ -231,13 +242,14 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
             continue;
 
           size_t pixel_num = x_flip ? pixel : 7 - pixel;
-          uint8_t palette_i = (((most_sig_bits >> pixel_num) & 1) << 1) |
-                              ((least_sig_bits >> pixel_num) & 1);
+          uint8_t palette_i =
+              static_cast<uint8_t>(((most_sig_bits >> pixel_num) & 1) << 1) |
+              static_cast<uint8_t>((least_sig_bits >> pixel_num) & 1);
           if (palette_i == 0) continue;
           uint16_t color;
           if (cgb_mode) {
             uint8_t color_i = palette_num * 8 + palette_i * 2;
-            color = (((uint16_t)cgb_obj_palette[color_i + 1]) << 8) |
+            color = static_cast<uint16_t>((cgb_obj_palette[color_i + 1]) << 8) |
                     cgb_obj_palette[color_i];
           } else {
             uint8_t color_i =
@@ -252,11 +264,10 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
 }
 
 void Ppu::drawBgWinTile(std::array<std::array<uint16_t, 160>, 144> &frame,
-                        uint16_t tile_map_base, int tile_row, int tile_col,
-                        uint16_t tile_row_index, uint16_t tile_col_index,
-                        int y_off, int x_off) {
+                        uint16_t tile_map_base, size_t tile_row,
+                        size_t tile_col, uint16_t tile_row_index,
+                        uint16_t tile_col_index, size_t y_off, size_t x_off) {
   // TODO: BG-to-OAM Priority
-  // TODO: Vertical and horizontal flip
   bool signed_addressing = ((control >> 4) & 1) == 0;
   uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
 
@@ -265,34 +276,42 @@ void Ppu::drawBgWinTile(std::array<std::array<uint16_t, 160>, 144> &frame,
 
   uint8_t attrs = 0;
   if (cgb_mode) attrs = readVramBank1(0x9800 + tile_row_index + tile_col_index);
+  bool y_flip = cgb_mode ? ((attrs >> 6) & 1) : false;
+  bool x_flip = cgb_mode ? ((attrs >> 5) & 1) : false;
 
-  uint16_t tile_start =
+  uint16_t tile_start = static_cast<uint16_t>(
       tile_data_base +
-      (signed_addressing ? (int8_t)tile_index : tile_index) * 16;
+      (signed_addressing ? static_cast<int8_t>(tile_index) : tile_index) * 16);
   if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
 
   size_t top_y = tile_row * 8 + y_off;
   size_t left_x = tile_col * 8 + x_off;
-  for (int line_n = 0; line_n < 8; line_n++) {
-    uint8_t least_sig_bits = readVramBank0(tile_start + line_n * 2);
-    uint8_t most_sig_bits = readVramBank0(tile_start + line_n * 2 + 1);
+  for (uint16_t line_index = 0; line_index < 8; line_index++) {
+    size_t line_n = y_flip ? 7 - line_index : line_index;
+    uint8_t least_sig_bits =
+        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2));
+    uint8_t most_sig_bits =
+        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2 + 1));
 
-    for (int pixel = 0; pixel < 8; pixel++) {
-      size_t pixel_index_y = top_y + line_n;
+    for (size_t pixel = 0; pixel < 8; pixel++) {
+      size_t pixel_num = x_flip ? pixel : 7 - pixel;
+      size_t pixel_index_y = top_y + line_index;
       size_t pixel_index_x = left_x + pixel;
       if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
 
       uint16_t color;
       if (cgb_mode) {
         uint8_t palette_num = attrs & 0b111;
-        uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
-                            ((least_sig_bits >> (7 - pixel)) & 1);
+        uint8_t palette_i =
+            static_cast<uint8_t>(((most_sig_bits >> pixel_num) & 1) << 1) |
+            static_cast<uint8_t>((least_sig_bits >> pixel_num) & 1);
         uint8_t color_i = palette_num * 8 + palette_i * 2;
-        color = (((uint16_t)cgb_bg_palette[color_i + 1]) << 8) |
+        color = static_cast<uint16_t>((cgb_bg_palette[color_i + 1]) << 8) |
                 cgb_bg_palette[color_i];
       } else {
-        uint8_t palette_i = (((most_sig_bits >> (7 - pixel)) & 1) << 1) |
-                            ((least_sig_bits >> (7 - pixel)) & 1);
+        uint8_t palette_i =
+            static_cast<uint8_t>(((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+            static_cast<uint8_t>((least_sig_bits >> (7 - pixel)) & 1);
         uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
         color = dmg_colors[color_i];
       }

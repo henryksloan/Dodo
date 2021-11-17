@@ -8,10 +8,9 @@
 #include "mbc/mbc3.h"
 #include "mbc/mbc5.h"
 
-int Gameboy::step() {
+bool Gameboy::step() {
   int cpu_tcycles = cpu.step() * 4;
-  bus->tick(cpu_tcycles);
-  return cpu_tcycles;
+  return bus->tick(cpu_tcycles);
 }
 
 std::optional<std::string> Gameboy::loadCartridge(std::string filename) {
@@ -27,7 +26,7 @@ std::optional<std::string> Gameboy::loadCartridge(std::string filename) {
   file.seekg(0, std::ios::beg);
 
   std::vector<uint8_t> data;
-  data.reserve(file_size);
+  data.reserve(static_cast<size_t>(file_size));
 
   data.insert(data.begin(), std::istream_iterator<uint8_t>(file),
               std::istream_iterator<uint8_t>());

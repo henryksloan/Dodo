@@ -24,9 +24,9 @@ class Bus {
   Bus() : wram(), hram(), ppu(), timer(), wram_bank(1) {}
 
   // Returns true if there is a new frame ready
-  void tick(int cpu_tcycles);
+  bool tick(int cpu_tcycles);
 
-  void loadMbc(std::unique_ptr<Mbc> mbc) { this->mbc = std::move(mbc); }
+  void loadMbc(std::unique_ptr<Mbc> mbc_) { this->mbc = std::move(mbc_); }
 
   void reset(bool cgb_mode);
 
@@ -35,7 +35,7 @@ class Bus {
 
   uint16_t read16(uint16_t addr) {
     uint8_t lo = read(addr);
-    return (read(addr + 1) << 8) | lo;
+    return static_cast<uint16_t>((read(addr + 1)) << 8) | lo;
   }
   void write16(uint16_t addr, uint16_t data) {
     write(addr, data & 0xFF);
@@ -53,10 +53,10 @@ class Bus {
 
   void switchSpeed();
 
-  void setButtonsPressed(uint8_t action_buttons_pressed,
-                         uint8_t dir_buttons_pressed) {
-    this->action_buttons_pressed = action_buttons_pressed;
-    this->dir_buttons_pressed = dir_buttons_pressed;
+  void setButtonsPressed(uint8_t action_buttons_pressed_,
+                         uint8_t dir_buttons_pressed_) {
+    this->action_buttons_pressed = action_buttons_pressed_;
+    this->dir_buttons_pressed = dir_buttons_pressed_;
   }
 
   void oamdma(uint16_t addr);
@@ -79,11 +79,11 @@ class Bus {
   bool double_speed, prepare_speed_switch;
   bool cgb_mode;
 
-  size_t wram_bank;
+  uint8_t wram_bank;
 
   enum class HdmaMode { kHdmaNone, kHdmaGeneral, kHdmaHBlank } hdma_mode;
-  size_t hdma_src_dst[4];  // The temporary registers, not the active transfer
-  size_t hdma_len;
+  uint8_t hdma_src_dst[4];  // The temporary registers, not the active transfer
+  uint8_t hdma_len;
   uint16_t hdma_src, hdma_dst;
 
   bool select_action_buttons, select_dir_buttons;
