@@ -15,7 +15,8 @@ class Mbc3 : public Mbc {
         rtc_latch(),
         rom_hi_bank(1),
         ram_bank_or_rtc_reg(0),
-        rtc{} {}
+        rtc{},
+        rtc_base(0) {}
 
  private:
   std::vector<uint8_t> rom, ram;
@@ -25,6 +26,7 @@ class Mbc3 : public Mbc {
   uint8_t ram_bank_or_rtc_reg;
 
   uint8_t rtc[5];
+  uint64_t rtc_base;
 
   virtual uint8_t readRomLo(uint16_t addr);
   virtual uint8_t readRomHi(uint16_t addr);
@@ -33,6 +35,8 @@ class Mbc3 : public Mbc {
   virtual void writeRomLo(uint16_t addr, uint8_t data);
   virtual void writeRomHi(uint16_t addr, uint8_t data);
   virtual void writeRam(uint16_t addr, uint8_t data);
+
+  void computeRtcBase();
 };
 
 #endif  // DODO_MBC3_H_
