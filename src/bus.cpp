@@ -1,6 +1,6 @@
 #include "bus.h"
 
-void Bus::tick(int cpu_tcycles) {
+bool Bus::tick(int cpu_tcycles) {
   int cpu_multiplier = double_speed ? 2 : 1;
   int dma_ticks = progressDma();
   int ppu_ticks = cpu_tcycles / cpu_multiplier + dma_ticks;
@@ -13,6 +13,8 @@ void Bus::tick(int cpu_tcycles) {
   int_request |= ppu_interrupts;
 
   // TODO: Tick other devices
+
+  return ((ppu_interrupts >> kIntOffVBlank) & 1) == 1;
 }
 
 void Bus::reset(bool cgb_mode_) {

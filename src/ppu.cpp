@@ -20,30 +20,33 @@ uint8_t Ppu::tick(int ppu_ticks) {
       if (this->compare_interrupt && (this->lcd_y == this->lcd_y_compare)) {
         interrupts |= kIntMaskStat;
       }
-    }
-  }
 
-  if (this->lcd_y >= 144) {
-    // VBlank line
-    this->stat_mode = kModeVblank;
-    if (this->lcd_y == 144) {
-      interrupts |= kIntMaskVblank;
-      if (this->mode_1_interrupt) interrupts |= kIntMaskStat;
+      if (this->lcd_y >= 144 && this->stat_mode != kModeVblank) {
+        // VBlank line
+        this->stat_mode = kModeVblank;
+        interrupts |= kIntMaskVblank;
+        if (this->mode_1_interrupt) interrupts |= kIntMaskStat;
+      }
     }
-  } else {
-    // Non-VBlank line
-    if (this->ppu_tick_divider < 80) {
-      this->stat_mode = kModeOamSearch;
-      if (this->mode_2_interrupt && this->ppu_tick_divider == 0)
-        interrupts |= kIntMaskStat;
-    } else if (this->ppu_tick_divider < 80 + 172) {
-      this->stat_mode = kModeTransfer;
-      if (this->mode_3_interrupt && this->ppu_tick_divider == 80)
-        interrupts |= kIntMaskStat;
-    } else {
-      this->stat_mode = kModeHblank;
-      if (this->mode_0_interrupt && this->ppu_tick_divider == 80 + 172)
-        interrupts |= kIntMaskStat;
+
+    if (this->lcd_y < 144) {
+      // Non-VBlank line
+      if (this->ppu_tick_divider < 80) {
+        if (this->stat_mode != kModeOamSearch) {
+          this->stat_mode = kModeOamSearch;
+          if (this->mode_2_interrupt) interrupts |= kIntMaskStat;
+        }
+      } else if (this->ppu_tick_divider < 80 + 172) {
+        if (this->stat_mode != kModeTransfer) {
+          this->stat_mode = kModeTransfer;
+          if (this->mode_3_interrupt) interrupts |= kIntMaskStat;
+        }
+      } else {
+        if (this->stat_mode != kModeHblank) {
+          this->stat_mode = kModeHblank;
+          if (this->mode_0_interrupt) interrupts |= kIntMaskStat;
+        }
+      }
     }
   }
 
@@ -189,6 +192,8 @@ void Ppu::drawWin(std::array<std::array<uint16_t, 160>, 144> &frame) {
 }
 
 void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
+  // TODO: Figure out why sprites disappear in Harvest Moon 2 when the window
+  // appears
   bool obj_enable = (control >> 1) & 1;
   if (!obj_enable) return;
 

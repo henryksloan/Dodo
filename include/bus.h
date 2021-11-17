@@ -24,7 +24,7 @@ class Bus {
   Bus() : wram(), hram(), ppu(), timer(), wram_bank(1) {}
 
   // Returns true if there is a new frame ready
-  void tick(int cpu_tcycles);
+  bool tick(int cpu_tcycles);
 
   void loadMbc(std::unique_ptr<Mbc> mbc_) { this->mbc = std::move(mbc_); }
 

@@ -19,10 +19,6 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  // for (int i = 0; i < 8000000; i++) {
-  //   gameboy.step();
-  // }
-
   SDL_Init(SDL_INIT_VIDEO);
 
   SDL_Window *window = SDL_CreateWindow("Dodo", SDL_WINDOWPOS_UNDEFINED,
@@ -38,16 +34,11 @@ int main(int argc, char **argv) {
                                            SDL_TEXTUREACCESS_TARGET, 160, 144);
 
   SDL_Event event;
-  int tick_counter = 0;
   while (true) {
-    tick_counter += gameboy.step();
-    if (tick_counter > 702240 / 4) {
-      tick_counter = 0;
-    } else {
-      continue;
-    }
-
     Uint64 start = SDL_GetPerformanceCounter();
+
+    while (!gameboy.step())
+      ;
 
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) break;
