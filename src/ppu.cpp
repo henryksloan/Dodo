@@ -178,7 +178,7 @@ void Ppu::drawBgLine() {
 
     uint8_t attrs = 0;
     if (cgb_mode)
-      attrs = readVramBank1(0x9800 + tile_row_index + tile_col_index);
+      attrs = readVramBank1(tile_map_base + tile_row_index + tile_col_index);
     bool y_flip = cgb_mode ? ((attrs >> 6) & 1) : false;
     bool x_flip = cgb_mode ? ((attrs >> 5) & 1) : false;
 
@@ -230,7 +230,6 @@ void Ppu::drawWinLine() {
 
   if (window_start_line == -1) window_start_line = lcd_y;
 
-  // TODO: Fix window palettes
   uint16_t tile_map_base = ((control >> 6) & 1) ? 0x9C00 : 0x9800;
 
   uint16_t window_line =
@@ -248,7 +247,7 @@ void Ppu::drawWinLine() {
 
     uint8_t attrs = 0;
     if (cgb_mode)
-      attrs = readVramBank1(0x9800 + tile_row_index + tile_col_index);
+      attrs = readVramBank1(tile_map_base + tile_row_index + tile_col_index);
     bool y_flip = cgb_mode ? ((attrs >> 6) & 1) : false;
     bool x_flip = cgb_mode ? ((attrs >> 5) & 1) : false;
 
@@ -293,6 +292,8 @@ void Ppu::drawWinLine() {
 
   window_internal_line++;
 }
+
+void Ppu::drawObjLine() {}
 
 // TODO: Rename and possibly refactor to const reference
 std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {

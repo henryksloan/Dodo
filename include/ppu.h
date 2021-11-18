@@ -94,6 +94,7 @@ class Ppu {
   void drawLine();
   void drawBgLine();
   void drawWinLine();
+  void drawObjLine();
 
   void drawObj(std::array<std::array<uint16_t, 160>, 144> &frame);
 };
