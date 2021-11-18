@@ -168,11 +168,9 @@ void Ppu::drawBgLine() {
   bool bg_win_enable = cgb_mode || (control & 1);
   if (!bg_win_enable) return;
 
-  // TODO: Fix y scrolling
   uint16_t tile_map_base = ((control >> 3) & 1) ? 0x9C00 : 0x9800;
-  uint16_t tile_row = lcd_y / 8;
+  uint16_t tile_row_index = (((lcd_y + scroll_y) / 8) % 32) * 32;
   for (uint16_t tile_col = 0; tile_col < 21; tile_col++) {
-    uint16_t tile_row_index = ((tile_row + (scroll_y / 8)) % 32) * 32;
     uint16_t tile_col_index = (tile_col + (scroll_x / 8)) % 32;
 
     bool signed_addressing = ((control >> 4) & 1) == 0;
@@ -194,7 +192,7 @@ void Ppu::drawBgLine() {
     if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
 
     size_t left_x = tile_col * 8 - (scroll_x % 8);
-    uint16_t line_index = lcd_y % 8;
+    uint16_t line_index = (lcd_y + scroll_y) % 8;
     size_t line_n = y_flip ? 7 - line_index : line_index;
     uint8_t least_sig_bits =
         readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2));
@@ -371,6 +369,7 @@ void Ppu::drawObjLine() {
       if (pixel_index_x >= 160) continue;
 
       // TODO: Make work with CGB palette
+      // TODO: Respect CGBA BG attr bit 7 "BG-to-OAM Priority"
       if (bg_win_over_obj && framebuffer[lcd_y][pixel_index_x] !=
                                  dmg_colors[dmg_bg_palette & 0b11])
         continue;

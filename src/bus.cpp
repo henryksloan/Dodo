@@ -134,7 +134,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr == 0xFF4D) {
     return static_cast<uint8_t>(double_speed << 7) | prepare_speed_switch;
   } else if (addr == 0xFF4F) {
-    return ppu.getVramBank();
+    return 0xFE | ppu.getVramBank();
   } else if (addr == 0xFF50) {
     // TODO: Set to non-zero to disable boot ROM
   } else if (addr >= 0xFF51 && addr <= 0xFF54) {
