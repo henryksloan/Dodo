@@ -40,7 +40,9 @@ class Ppu {
 
   bool inHblank() { return stat_mode == kModeHblank; }
 
-  std::array<std::array<uint16_t, 160>, 144> frameTest();
+  const std::array<std::array<uint16_t, 160>, 144> &getFrame() const {
+    return framebuffer;
+  }
 
  private:
   std::array<uint8_t, kVramSize> vram;
@@ -97,6 +99,10 @@ class Ppu {
   void drawObjLine();
 
   void drawObj(std::array<std::array<uint16_t, 160>, 144> &frame);
+
+  struct OamEntry {
+    uint8_t y, x, tile_index, attrs;
+  };
 };
 
 #endif  // DODO_PPU_H_

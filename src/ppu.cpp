@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <iostream>
+#include <vector>
 
 uint8_t Ppu::tick(int ppu_ticks) {
   if (((control >> 7) & 1) == 0) return 0;
@@ -41,6 +42,9 @@ uint8_t Ppu::tick(int ppu_ticks) {
         }
       } else if (this->ppu_tick_divider < 80 + 172) {
         if (this->stat_mode != kModeTransfer) {
+          // if (this->lcd_y == 0)
+          //   std::fill(framebuffer.begin(), framebuffer.end(),
+          //             std::array<uint16_t, 160>{0x7FFF});
           drawLine();
           this->stat_mode = kModeTransfer;
           if (this->mode_3_interrupt) interrupts |= kIntMaskStat;
@@ -156,7 +160,7 @@ void Ppu::drawLine() {
 
   drawBgLine();
   drawWinLine();
-  drawObj(framebuffer);
+  drawObjLine();
 }
 
 // TODO: Factor some code out of this and drawWinLine
@@ -164,6 +168,7 @@ void Ppu::drawBgLine() {
   bool bg_win_enable = cgb_mode || (control & 1);
   if (!bg_win_enable) return;
 
+  // TODO: Fix y scrolling
   uint16_t tile_map_base = ((control >> 3) & 1) ? 0x9C00 : 0x9800;
   uint16_t tile_row = lcd_y / 8;
   for (uint16_t tile_col = 0; tile_col < 21; tile_col++) {
@@ -293,82 +298,99 @@ void Ppu::drawWinLine() {
   window_internal_line++;
 }
 
-void Ppu::drawObjLine() {}
-
-// TODO: Rename and possibly refactor to const reference
-std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
-  return framebuffer;
-}
-
-// TODO: Replace by line-by-line function
-void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
-  // TODO: Figure out why sprites disappear in Harvest Moon 2 when the window
-  // appears
+void Ppu::drawObjLine() {
   bool obj_enable = (control >> 1) & 1;
   if (!obj_enable) return;
 
-  bool large_obj = (control >> 2) & 1;
-  for (size_t oam_index = 0; oam_index < 40; oam_index++) {
-    // TODO: Perhaps factor this out to drawTile()
-    uint8_t y = oam[oam_index * 4 + 0];
-    uint8_t x = oam[oam_index * 4 + 1];
-    if (x == 0 || x >= 168 || (large_obj && y == 0) || (!large_obj && y <= 8))
-      continue;
-    int16_t y_signed = static_cast<int16_t>(y) - 16;
-    int16_t x_signed = static_cast<int16_t>(x) - 8;
+  std::vector<OamEntry> selected;
+  selected.reserve(10);
 
-    uint8_t tile_index = oam[oam_index * 4 + 2];
-    if (large_obj) tile_index &= ~1;
-    uint8_t attrs = oam[oam_index * 4 + 3];
+  const bool large_obj = (control >> 2) & 1;
+  const uint8_t height = large_obj ? 16 : 8;
+  for (size_t oam_index = 0; oam_index < 40; oam_index++) {
+    uint8_t y = oam[oam_index * 4 + 0];
+    int16_t y_signed = static_cast<int16_t>(y) - 16;
+    if (lcd_y >= y_signed && lcd_y < y_signed + height) {
+      uint8_t x = oam[oam_index * 4 + 1];
+      uint8_t tile_index = oam[oam_index * 4 + 2];
+      uint8_t attrs = oam[oam_index * 4 + 3];
+      selected.push_back({y, x, tile_index, attrs});
+
+      if (selected.size() >= 10) break;
+    }
+  }
+
+  // In Non-CGB mode, the smaller the X coordinate, the higher the priority.
+  // When X coordinates are identical, the object located first in OAM has
+  // higher priority.
+  // In CGB mode, only the object’s location in OAM determines its priority. The
+  // earlier the object, the higher its priority.
+  if (!cgb_mode) {
+    std::stable_sort(selected.begin(), selected.end(),
+                     [](auto a, auto b) { return a.x < b.x; });
+  }
+
+  // Iterate backwards so the highest-priority sprites are drawn on top
+  for (auto it = selected.rbegin(); it != selected.rend(); it++) {
+    const auto [y, x, tile_index, attrs] = *it;
+
+    if (x == 0 || x >= 168) continue;
+
     bool bg_win_over_obj = (!cgb_mode || (control & 1)) && ((attrs >> 7) & 1);
     bool y_flip = (attrs >> 6) & 1;
     bool x_flip = (attrs >> 5) & 1;
     uint8_t palette_num = cgb_mode ? (attrs & 0b111) : ((attrs >> 4) & 1);
 
-    size_t n_tiles = (large_obj ? 2 : 1);
-    for (size_t tile = 0; tile < n_tiles; tile++) {
-      uint16_t tile_start =
-          0x8000 +
-          static_cast<uint16_t>(
-              (tile_index + (y_flip ? (n_tiles - tile - 1) : tile)) * 16);
-      if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
-
-      for (size_t line_index = 0; line_index < 8; line_index++) {
-        size_t line_n = y_flip ? 7 - line_index : line_index;
-        uint8_t least_sig_bits =
-            readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2));
-        uint8_t most_sig_bits =
-            readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2 + 1));
-
-        for (size_t pixel = 0; pixel < 8; pixel++) {
-          size_t pixel_index_y = static_cast<size_t>(
-              y_signed + static_cast<int>(line_index + tile * 8));
-          size_t pixel_index_x =
-              static_cast<size_t>(x_signed + static_cast<int>(pixel));
-          if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
-
-          if (bg_win_over_obj && frame[pixel_index_y][pixel_index_x] !=
-                                     dmg_colors[dmg_bg_palette & 0b11])
-            continue;
-
-          size_t pixel_num = x_flip ? pixel : 7 - pixel;
-          uint8_t palette_i =
-              static_cast<uint8_t>(((most_sig_bits >> pixel_num) & 1) << 1) |
-              static_cast<uint8_t>((least_sig_bits >> pixel_num) & 1);
-          if (palette_i == 0) continue;
-          uint16_t color;
-          if (cgb_mode) {
-            uint8_t color_i = palette_num * 8 + palette_i * 2;
-            color = static_cast<uint16_t>((cgb_obj_palette[color_i + 1]) << 8) |
-                    cgb_obj_palette[color_i];
-          } else {
-            uint8_t color_i =
-                (dmg_obj_palette[palette_num] >> (palette_i * 2)) & 0b11;
-            color = dmg_colors[color_i];
-          }
-          frame[pixel_index_y][pixel_index_x] = color;
-        }
+    int16_t x_signed = static_cast<int16_t>(x) - 8;
+    int16_t y_signed = static_cast<int16_t>(y) - 16;
+    uint8_t line_index =
+        static_cast<uint8_t>(static_cast<int16_t>(lcd_y) - y_signed);
+    uint8_t tile_to_draw = it->tile_index;
+    if (large_obj) {
+      tile_to_draw &= ~1;
+      if (line_index >= 8) {
+        tile_to_draw |= 1;
+        line_index -= 8;
       }
+
+      if (y_flip) tile_to_draw ^= 1;
+    }
+
+    uint16_t tile_start = 0x8000 + tile_to_draw * 16;
+    if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
+
+    size_t line_n = y_flip ? 7 - line_index : line_index;
+    uint8_t least_sig_bits =
+        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2));
+    uint8_t most_sig_bits =
+        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2 + 1));
+
+    for (size_t pixel = 0; pixel < 8; pixel++) {
+      size_t pixel_index_x =
+          static_cast<size_t>(x_signed + static_cast<int>(pixel));
+      if (pixel_index_x >= 160) continue;
+
+      // TODO: Make work with CGB palette
+      if (bg_win_over_obj && framebuffer[lcd_y][pixel_index_x] !=
+                                 dmg_colors[dmg_bg_palette & 0b11])
+        continue;
+
+      size_t pixel_num = x_flip ? pixel : 7 - pixel;
+      uint8_t palette_i =
+          static_cast<uint8_t>(((most_sig_bits >> pixel_num) & 1) << 1) |
+          static_cast<uint8_t>((least_sig_bits >> pixel_num) & 1);
+      if (palette_i == 0) continue;
+      uint16_t color;
+      if (cgb_mode) {
+        uint8_t color_i = palette_num * 8 + palette_i * 2;
+        color = static_cast<uint16_t>((cgb_obj_palette[color_i + 1]) << 8) |
+                cgb_obj_palette[color_i];
+      } else {
+        uint8_t color_i =
+            (dmg_obj_palette[palette_num] >> (palette_i * 2)) & 0b11;
+        color = dmg_colors[color_i];
+      }
+      framebuffer[lcd_y][pixel_index_x] = color;
     }
   }
 }
