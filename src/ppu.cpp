@@ -26,6 +26,9 @@ uint8_t Ppu::tick(int ppu_ticks) {
         this->stat_mode = kModeVblank;
         interrupts |= kIntMaskVblank;
         if (this->mode_1_interrupt) interrupts |= kIntMaskStat;
+
+        window_start_line = -1;
+        window_internal_line = 0;
       }
     }
 
@@ -38,6 +41,7 @@ uint8_t Ppu::tick(int ppu_ticks) {
         }
       } else if (this->ppu_tick_divider < 80 + 172) {
         if (this->stat_mode != kModeTransfer) {
+          drawLine();
           this->stat_mode = kModeTransfer;
           if (this->mode_3_interrupt) interrupts |= kIntMaskStat;
         }
@@ -147,50 +151,155 @@ void Ppu::write(uint16_t addr, uint8_t data) {
   }
 }
 
-std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
-  std::array<std::array<uint16_t, 160>, 144> frame;
+void Ppu::drawLine() {
+  if (lcd_y >= 144) throw "Attempted to draw at invalid line";
 
-  drawBg(frame);
-  drawWin(frame);
-  drawObj(frame);
-
-  return frame;
+  drawBgLine();
+  drawWinLine();
+  drawObj(framebuffer);
 }
 
-void Ppu::drawBg(std::array<std::array<uint16_t, 160>, 144> &frame) {
-  bool bg_win_enable = !cgb_mode || (control & 1);
+// TODO: Factor some code out of this and drawWinLine
+void Ppu::drawBgLine() {
+  bool bg_win_enable = cgb_mode || (control & 1);
   if (!bg_win_enable) return;
 
   uint16_t tile_map_base = ((control >> 3) & 1) ? 0x9C00 : 0x9800;
+  uint16_t tile_row = lcd_y / 8;
+  for (uint16_t tile_col = 0; tile_col < 21; tile_col++) {
+    uint16_t tile_row_index = ((tile_row + (scroll_y / 8)) % 32) * 32;
+    uint16_t tile_col_index = (tile_col + (scroll_x / 8)) % 32;
 
-  for (uint16_t tile_row = 0; tile_row < 19; tile_row++) {
-    for (uint16_t tile_col = 0; tile_col < 21; tile_col++) {
-      uint16_t tile_row_index = ((tile_row + (scroll_y / 8)) % 32) * 32;
-      uint16_t tile_col_index = (tile_col + (scroll_x / 8)) % 32;
-      drawBgWinTile(frame, tile_map_base, tile_row, tile_col, tile_row_index,
-                    tile_col_index, -(scroll_y % 8), -(scroll_x % 8));
+    bool signed_addressing = ((control >> 4) & 1) == 0;
+    uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
+
+    uint8_t tile_index =
+        readVramBank0(tile_map_base + tile_row_index + tile_col_index);
+
+    uint8_t attrs = 0;
+    if (cgb_mode)
+      attrs = readVramBank1(0x9800 + tile_row_index + tile_col_index);
+    bool y_flip = cgb_mode ? ((attrs >> 6) & 1) : false;
+    bool x_flip = cgb_mode ? ((attrs >> 5) & 1) : false;
+
+    uint16_t tile_start = static_cast<uint16_t>(
+        tile_data_base +
+        (signed_addressing ? static_cast<int8_t>(tile_index) : tile_index) *
+            16);
+    if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
+
+    size_t left_x = tile_col * 8 - (scroll_x % 8);
+    uint16_t line_index = lcd_y % 8;
+    size_t line_n = y_flip ? 7 - line_index : line_index;
+    uint8_t least_sig_bits =
+        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2));
+    uint8_t most_sig_bits =
+        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2 + 1));
+
+    for (size_t pixel = 0; pixel < 8; pixel++) {
+      size_t pixel_num = x_flip ? pixel : 7 - pixel;
+      size_t pixel_index_x = left_x + pixel;
+      if (pixel_index_x >= 160) continue;
+
+      uint16_t color;
+      if (cgb_mode) {
+        uint8_t palette_num = attrs & 0b111;
+        uint8_t palette_i =
+            static_cast<uint8_t>(((most_sig_bits >> pixel_num) & 1) << 1) |
+            static_cast<uint8_t>((least_sig_bits >> pixel_num) & 1);
+        uint8_t color_i = palette_num * 8 + palette_i * 2;
+        color = static_cast<uint16_t>((cgb_bg_palette[color_i + 1]) << 8) |
+                cgb_bg_palette[color_i];
+      } else {
+        uint8_t palette_i =
+            static_cast<uint8_t>(((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+            static_cast<uint8_t>((least_sig_bits >> (7 - pixel)) & 1);
+        uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
+        color = dmg_colors[color_i];
+      }
+      framebuffer[lcd_y][pixel_index_x] = color;
     }
   }
 }
 
-void Ppu::drawWin(std::array<std::array<uint16_t, 160>, 144> &frame) {
+void Ppu::drawWinLine() {
   bool win_enable = (control >> 5) & 1;
-  bool bg_win_enable = !cgb_mode || (control & 1);
+  bool bg_win_enable = cgb_mode || (control & 1);
   if (!win_enable || !bg_win_enable) return;
+  if (window_y > lcd_y || window_x > 166) return;
+
+  if (window_start_line == -1) window_start_line = lcd_y;
 
   // TODO: Fix window palettes
   uint16_t tile_map_base = ((control >> 6) & 1) ? 0x9C00 : 0x9800;
 
-  for (uint16_t tile_row = 0; tile_row < 19; tile_row++) {
-    for (uint16_t tile_col = 0; tile_col < 21; tile_col++) {
-      uint16_t tile_row_index = tile_row * 32;
-      uint16_t tile_col_index = tile_col;
-      drawBgWinTile(frame, tile_map_base, tile_row, tile_col, tile_row_index,
-                    tile_col_index, window_y, window_x - 7);
+  uint16_t window_line =
+      static_cast<uint8_t>(window_start_line) + window_internal_line - window_y;
+
+  for (uint16_t tile_col = 0; tile_col < 21; tile_col++) {
+    uint16_t tile_row_index = (window_line / 8) * 32;
+    uint16_t tile_col_index = tile_col;
+
+    bool signed_addressing = ((control >> 4) & 1) == 0;
+    uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
+
+    uint8_t tile_index =
+        readVramBank0(tile_map_base + tile_row_index + tile_col_index);
+
+    uint8_t attrs = 0;
+    if (cgb_mode)
+      attrs = readVramBank1(0x9800 + tile_row_index + tile_col_index);
+    bool y_flip = cgb_mode ? ((attrs >> 6) & 1) : false;
+    bool x_flip = cgb_mode ? ((attrs >> 5) & 1) : false;
+
+    uint16_t tile_start = static_cast<uint16_t>(
+        tile_data_base +
+        (signed_addressing ? static_cast<int8_t>(tile_index) : tile_index) *
+            16);
+    if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
+
+    size_t left_x = tile_col * 8 + (window_x - 7);
+    uint16_t line_index = window_line % 8;
+    size_t line_n = y_flip ? 7 - line_index : line_index;
+    uint8_t least_sig_bits =
+        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2));
+    uint8_t most_sig_bits =
+        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2 + 1));
+
+    for (size_t pixel = 0; pixel < 8; pixel++) {
+      size_t pixel_num = x_flip ? pixel : 7 - pixel;
+      size_t pixel_index_x = left_x + pixel;
+      if (pixel_index_x >= 160) continue;
+
+      uint16_t color;
+      if (cgb_mode) {
+        uint8_t palette_num = attrs & 0b111;
+        uint8_t palette_i =
+            static_cast<uint8_t>(((most_sig_bits >> pixel_num) & 1) << 1) |
+            static_cast<uint8_t>((least_sig_bits >> pixel_num) & 1);
+        uint8_t color_i = palette_num * 8 + palette_i * 2;
+        color = static_cast<uint16_t>((cgb_bg_palette[color_i + 1]) << 8) |
+                cgb_bg_palette[color_i];
+      } else {
+        uint8_t palette_i =
+            static_cast<uint8_t>(((most_sig_bits >> (7 - pixel)) & 1) << 1) |
+            static_cast<uint8_t>((least_sig_bits >> (7 - pixel)) & 1);
+        uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
+        color = dmg_colors[color_i];
+      }
+      framebuffer[lcd_y][pixel_index_x] = color;
     }
   }
+
+  window_internal_line++;
 }
 
+// TODO: Rename and possibly refactor to const reference
+std::array<std::array<uint16_t, 160>, 144> Ppu::frameTest() {
+  return framebuffer;
+}
+
+// TODO: Replace by line-by-line function
 void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
   // TODO: Figure out why sprites disappear in Harvest Moon 2 when the window
   // appears
@@ -259,63 +368,6 @@ void Ppu::drawObj(std::array<std::array<uint16_t, 160>, 144> &frame) {
           frame[pixel_index_y][pixel_index_x] = color;
         }
       }
-    }
-  }
-}
-
-void Ppu::drawBgWinTile(std::array<std::array<uint16_t, 160>, 144> &frame,
-                        uint16_t tile_map_base, size_t tile_row,
-                        size_t tile_col, uint16_t tile_row_index,
-                        uint16_t tile_col_index, size_t y_off, size_t x_off) {
-  // TODO: BG-to-OAM Priority
-  bool signed_addressing = ((control >> 4) & 1) == 0;
-  uint16_t tile_data_base = signed_addressing ? 0x9000 : 0x8000;
-
-  uint8_t tile_index =
-      readVramBank0(tile_map_base + tile_row_index + tile_col_index);
-
-  uint8_t attrs = 0;
-  if (cgb_mode) attrs = readVramBank1(0x9800 + tile_row_index + tile_col_index);
-  bool y_flip = cgb_mode ? ((attrs >> 6) & 1) : false;
-  bool x_flip = cgb_mode ? ((attrs >> 5) & 1) : false;
-
-  uint16_t tile_start = static_cast<uint16_t>(
-      tile_data_base +
-      (signed_addressing ? static_cast<int8_t>(tile_index) : tile_index) * 16);
-  if (cgb_mode && ((attrs >> 3) & 1)) tile_start += 0x2000;
-
-  size_t top_y = tile_row * 8 + y_off;
-  size_t left_x = tile_col * 8 + x_off;
-  for (uint16_t line_index = 0; line_index < 8; line_index++) {
-    size_t line_n = y_flip ? 7 - line_index : line_index;
-    uint8_t least_sig_bits =
-        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2));
-    uint8_t most_sig_bits =
-        readVramBank0(static_cast<uint16_t>(tile_start + line_n * 2 + 1));
-
-    for (size_t pixel = 0; pixel < 8; pixel++) {
-      size_t pixel_num = x_flip ? pixel : 7 - pixel;
-      size_t pixel_index_y = top_y + line_index;
-      size_t pixel_index_x = left_x + pixel;
-      if (pixel_index_y >= 144 || pixel_index_x >= 160) continue;
-
-      uint16_t color;
-      if (cgb_mode) {
-        uint8_t palette_num = attrs & 0b111;
-        uint8_t palette_i =
-            static_cast<uint8_t>(((most_sig_bits >> pixel_num) & 1) << 1) |
-            static_cast<uint8_t>((least_sig_bits >> pixel_num) & 1);
-        uint8_t color_i = palette_num * 8 + palette_i * 2;
-        color = static_cast<uint16_t>((cgb_bg_palette[color_i + 1]) << 8) |
-                cgb_bg_palette[color_i];
-      } else {
-        uint8_t palette_i =
-            static_cast<uint8_t>(((most_sig_bits >> (7 - pixel)) & 1) << 1) |
-            static_cast<uint8_t>((least_sig_bits >> (7 - pixel)) & 1);
-        uint8_t color_i = (dmg_bg_palette >> (palette_i * 2)) & 0b11;
-        color = dmg_colors[color_i];
-      }
-      frame[pixel_index_y][pixel_index_x] = color;
     }
   }
 }
