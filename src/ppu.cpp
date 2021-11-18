@@ -368,11 +368,14 @@ void Ppu::drawObjLine() {
           static_cast<size_t>(x_signed + static_cast<int>(pixel));
       if (pixel_index_x >= 160) continue;
 
-      // TODO: Make work with CGB palette
       // TODO: Respect CGBA BG attr bit 7 "BG-to-OAM Priority"
-      if (bg_win_over_obj && framebuffer[lcd_y][pixel_index_x] !=
-                                 dmg_colors[dmg_bg_palette & 0b11])
-        continue;
+      if (bg_win_over_obj) {
+        uint16_t bg_color_0 =
+            cgb_mode ? static_cast<uint16_t>((cgb_bg_palette[1] << 8) |
+                                             cgb_bg_palette[0])
+                     : dmg_colors[dmg_bg_palette & 0b11];
+        if (framebuffer[lcd_y][pixel_index_x] != bg_color_0) continue;
+      }
 
       size_t pixel_num = x_flip ? pixel : 7 - pixel;
       uint8_t palette_i =

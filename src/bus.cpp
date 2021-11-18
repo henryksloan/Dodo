@@ -109,7 +109,6 @@ void Bus::write(uint16_t addr, uint8_t data) {
 uint8_t Bus::ioRead(uint16_t addr) {
   // TODO: Limit some to CGB mode
   // TODO: FF56 - Infrared
-  // TODO: FF6C - Object priority
   if (addr == 0xFF00) {
     // 0 means selected, and 0 means pressed
     // Don't ask me why
