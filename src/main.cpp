@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
         static_cast<uint8_t>(!key_state[SDL_SCANCODE_RIGHT]);
     gameboy.setButtonsPressed(action_keys, dir_keys);
 
-    auto frame = gameboy.frameTest();
+    auto &frame = gameboy.getFrame();
     SDL_UpdateTexture(texture, NULL, frame.data(), 160 * 2);
     SDL_RenderCopy(renderer, texture, NULL, NULL);
     SDL_RenderPresent(renderer);

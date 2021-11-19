@@ -61,8 +61,8 @@ class Bus {
 
   void oamdma(uint16_t addr);
 
-  std::array<std::array<uint16_t, 160>, 144> frameTest() {
-    return ppu.frameTest();
+  const std::array<std::array<uint16_t, 160>, 144> &getFrame() const {
+    return ppu.getFrame();
   }
 
  private:

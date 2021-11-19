@@ -40,7 +40,9 @@ class Ppu {
 
   bool inHblank() { return stat_mode == kModeHblank; }
 
-  std::array<std::array<uint16_t, 160>, 144> frameTest();
+  const std::array<std::array<uint16_t, 160>, 144> &getFrame() const {
+    return framebuffer;
+  }
 
  private:
   std::array<uint8_t, kVramSize> vram;
@@ -73,6 +75,11 @@ class Ppu {
   uint8_t cgb_bg_palette[64];
   uint8_t cgb_obj_palette[64];
 
+  int16_t window_start_line;
+  uint8_t window_internal_line;
+
+  std::array<std::array<uint16_t, 160>, 144> framebuffer;
+
   uint16_t translateVramAddr(const uint16_t addr) const {
     uint16_t bank = 0x2000 * (cgb_mode ? vram_bank : 0);
     return bank + (addr - 0x8000);
@@ -86,14 +93,16 @@ class Ppu {
     return vram[addr - 0x8000 + 0x2000];
   }
 
-  void drawBg(std::array<std::array<uint16_t, 160>, 144> &frame);
-  void drawWin(std::array<std::array<uint16_t, 160>, 144> &frame);
+  void drawLine();
+  void drawBgLine();
+  void drawWinLine();
+  void drawObjLine();
+
   void drawObj(std::array<std::array<uint16_t, 160>, 144> &frame);
 
-  void drawBgWinTile(std::array<std::array<uint16_t, 160>, 144> &frame,
-                     uint16_t tile_map_base, size_t tile_row, size_t tile_col,
-                     uint16_t tile_row_index, uint16_t tile_col_index,
-                     size_t y_off, size_t x_off);
+  struct OamEntry {
+    uint8_t y, x, tile_index, attrs;
+  };
 };
 
 #endif  // DODO_PPU_H_

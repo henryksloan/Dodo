@@ -36,8 +36,8 @@ class Gameboy {
     bus->setButtonsPressed(action_buttons_pressed, dir_buttons_pressed);
   }
 
-  std::array<std::array<uint16_t, 160>, 144> frameTest() {
-    return bus->frameTest();
+  const std::array<std::array<uint16_t, 160>, 144> &getFrame() const {
+    return bus->getFrame();
   }
 
  private:
