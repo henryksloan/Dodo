@@ -368,13 +368,36 @@ void Ppu::drawObjLine() {
           static_cast<size_t>(x_signed + static_cast<int>(pixel));
       if (pixel_index_x >= 160) continue;
 
-      // TODO: Respect CGBA BG attr bit 7 "BG-to-OAM Priority"
       if (bg_win_over_obj) {
         uint16_t bg_color_0 =
             cgb_mode ? static_cast<uint16_t>((cgb_bg_palette[1] << 8) |
                                              cgb_bg_palette[0])
                      : dmg_colors[dmg_bg_palette & 0b11];
         if (framebuffer[lcd_y][pixel_index_x] != bg_color_0) continue;
+      }
+
+      // TODO: Confirm this is right
+      // Respect the CGBA BG attr bit 7 "BG-to-OAM Priority"
+      // If the BG tile that overlaps this pixel has it set, hide the pixel
+      if (cgb_mode) {
+        uint16_t bg_tile_map_base = ((control >> 3) & 1) ? 0x9C00 : 0x9800;
+        uint16_t bg_tile_row_index = (((lcd_y + scroll_y) / 8) % 32) * 32;
+        uint16_t bg_tile_col_index =
+            ((pixel_index_x / 8) + (scroll_x / 8)) % 32;
+        uint8_t bg_tile_attrs = readVramBank1(
+            bg_tile_map_base + bg_tile_row_index + bg_tile_col_index);
+        if (bg_tile_attrs >> 7) continue;
+
+        // Also check the window
+        uint16_t window_line = static_cast<uint8_t>(window_start_line) +
+                               window_internal_line - window_y;
+
+        bg_tile_row_index = (window_line / 8) * 32;
+        bg_tile_col_index = static_cast<uint16_t>(pixel_index_x / 8);
+        bg_tile_map_base = ((control >> 6) & 1) ? 0x9C00 : 0x9800;
+        bg_tile_attrs = readVramBank1(bg_tile_map_base + bg_tile_row_index +
+                                      bg_tile_col_index);
+        if (bg_tile_attrs >> 7) continue;
       }
 
       size_t pixel_num = x_flip ? pixel : 7 - pixel;
