@@ -5,6 +5,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <variant>
 
 #include "bus.h"
@@ -25,7 +26,8 @@ class Gameboy {
 
   // Either constructs an MBC of the given type, or returns a string error
   static std::variant<std::unique_ptr<Mbc>, std::string> makeMbc(
-      uint8_t type, size_t ram_size, const std::vector<uint8_t> &data);
+      std::string_view filename, uint8_t type, size_t ram_size,
+      const std::vector<uint8_t> &data);
 
   // Bit 3  Down  or Start    (0=Pressed)
   // Bit 2  Up    or Select   (0=Pressed)

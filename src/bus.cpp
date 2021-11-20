@@ -14,6 +14,8 @@ bool Bus::tick(int cpu_tcycles) {
   auto ppu_interrupts = ppu.tick(ppu_ticks);
   int_request |= ppu_interrupts;
 
+  // TODO: Keypad and serial interrupts
+
   // TODO: Tick other devices
 
   return ((ppu_interrupts >> kIntOffVBlank) & 1) == 1;
