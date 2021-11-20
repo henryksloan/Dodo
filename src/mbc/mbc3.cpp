@@ -6,13 +6,13 @@
 uint8_t Mbc3::readRomLo(uint16_t addr) { return rom[addr]; }
 
 uint8_t Mbc3::readRomHi(uint16_t addr) {
-  return rom[(rom_hi_bank * 0x4000) + addr];
+  return rom[((static_cast<size_t>(rom_hi_bank) * 0x4000) + addr) % rom.size()];
 }
 
 uint8_t Mbc3::readRam(uint16_t addr) {
-  if (!ram_rtc_enabled) return 0;
+  if (!ram_rtc_enabled) return 0xFF;
   if (ram_bank_or_rtc_reg < 0x04) {
-    return ram[(ram_bank_or_rtc_reg * 0x2000) + addr];
+    return ram[(static_cast<size_t>(ram_bank_or_rtc_reg) * 0x2000) + addr];
   } else if (ram_bank_or_rtc_reg >= 0x08 && ram_bank_or_rtc_reg <= 0x0C) {
     return rtc[ram_bank_or_rtc_reg - 0x08];
   }
@@ -58,7 +58,7 @@ void Mbc3::writeRomHi(uint16_t addr, uint8_t data) {
 void Mbc3::writeRam(uint16_t addr, uint8_t data) {
   if (!ram_rtc_enabled) return;
   if (ram_bank_or_rtc_reg < 0x04) {
-    ram[(ram_bank_or_rtc_reg * 0x2000) + addr] = data;
+    ram[(static_cast<size_t>(ram_bank_or_rtc_reg) * 0x2000) + addr] = data;
   } else if (ram_bank_or_rtc_reg >= 0x08) {
     rtc[data - 0x08] = data;
     computeRtcBase();
@@ -72,9 +72,9 @@ void Mbc3::computeRtcBase() {
   uint64_t diff = static_cast<uint64_t>(seconds.count());
 
   diff -= rtc[0];
-  diff -= rtc[1] * 60;
-  diff -= rtc[2] * 3600;
+  diff -= static_cast<uint64_t>(rtc[1]) * 60;
+  diff -= static_cast<uint64_t>(rtc[2]) * 3600;
   uint16_t days = static_cast<uint16_t>((rtc[4] & 0x1) << 8) | (rtc[3]);
-  diff -= days * 3600 * 24;
+  diff -= static_cast<uint64_t>(days) * 3600 * 24;
   rtc_base = diff;
 }

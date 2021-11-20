@@ -11,7 +11,7 @@
 #include "timer.h"
 
 const size_t kWramSize = 0x8000;
-const size_t kHramSize = 0x7E;
+const size_t kHramSize = 0x80;
 
 const int kIntOffVBlank = 0;
 const int kIntOffStat = 1;

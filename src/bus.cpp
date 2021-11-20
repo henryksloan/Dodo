@@ -1,5 +1,7 @@
 #include "bus.h"
 
+#include <iostream>
+
 bool Bus::tick(int cpu_tcycles) {
   int cpu_multiplier = double_speed ? 2 : 1;
   int dma_ticks = progressDma();
@@ -69,7 +71,7 @@ uint8_t Bus::read(uint16_t addr) {
     size_t bank = 0x1000 * (cgb_mode ? wram_bank : 1);
     return wram[bank + (addr - 0xD000)];
   } else if (addr >= 0xE000 && addr < 0xFE00) {
-    // TODO: Echo RAM
+    return read(addr - 0x2000);
   } else if (addr >= 0xFE00 && addr < 0xFEA0) {
     ppu.readOam(addr);
   } else if (addr >= 0xFF00 && addr < 0xFF80) {
@@ -84,7 +86,7 @@ uint8_t Bus::read(uint16_t addr) {
 }
 
 void Bus::write(uint16_t addr, uint8_t data) {
-  if ((addr < 0x4000) || (addr >= 0xA000 && addr < 0xC000)) {
+  if ((addr < 0x8000) || (addr >= 0xA000 && addr < 0xC000)) {
     if (mbc) mbc->write(addr, data);
   } else if (addr >= 0x8000 && addr < 0xA000) {
     ppu.writeVram(addr, data);
@@ -94,7 +96,7 @@ void Bus::write(uint16_t addr, uint8_t data) {
     size_t bank = 0x1000 * (cgb_mode ? wram_bank : 1);
     wram[bank + (addr - 0xD000)] = data;
   } else if (addr >= 0xE000 && addr < 0xFE00) {
-    // TODO: Echo RAM
+    write(addr - 0x2000, data);
   } else if (addr >= 0xFE00 && addr < 0xFEA0) {
     ppu.writeOam(addr, data);
   } else if (addr >= 0xFF00 && addr < 0xFF80) {
@@ -112,11 +114,12 @@ uint8_t Bus::ioRead(uint16_t addr) {
   if (addr == 0xFF00) {
     // 0 means selected, and 0 means pressed
     // Don't ask me why
-    uint8_t masked_actions = select_action_buttons ? 0 : action_buttons_pressed;
-    uint8_t masked_dirs = select_dir_buttons ? 0 : dir_buttons_pressed;
+    uint8_t masked_actions =
+        select_action_buttons ? 0xF : action_buttons_pressed;
+    uint8_t masked_dirs = select_dir_buttons ? 0xF : dir_buttons_pressed;
+    uint8_t pressed = ~((~masked_actions) | (~masked_dirs));
     return static_cast<uint8_t>(select_action_buttons << 5) |
-           static_cast<uint8_t>(select_dir_buttons << 4) | masked_actions |
-           masked_dirs;
+           static_cast<uint8_t>(select_dir_buttons << 4) | pressed;
   } else if (addr == 0xFF01 || addr == 0xFF02) {
     // TODO: Communication
     return serial_temp[addr - 0xFF01];

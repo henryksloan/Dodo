@@ -27,14 +27,17 @@ int Cpu::step() {
   }
 
   uint8_t opcode = bus->read(pc.get());
-  // std::cout << std::hex << std::setfill('0') << std::setw(4) << (int)pc.get()
-  //           << ": " << std::setw(2) << (int)opcode << std::setw(4)
-  //           << " AF:" << std::setfill('0') << std::setw(4) << (int)af.get()
-  //           << " BC:" << std::setfill('0') << std::setw(4) << (int)bc.get()
-  //           << " DE:" << std::setfill('0') << std::setw(4) << (int)de.get()
-  //           << " HL:" << std::setfill('0') << std::setw(4) << (int)hl.get()
-  //           << " SP:" << std::setfill('0') << std::setw(4) << (int)sp.get()
-  //           << '\n';
+  // std::cout << std::hex << std::setfill('0') << std::setw(4)
+  //           << static_cast<int>(pc.get()) << ": " << std::setw(2)
+  //           << static_cast<int>(opcode) << std::setw(4)
+  //           << " AF:" << std::setfill('0') << std::setw(4)
+  //           << static_cast<int>(af.get()) << " BC:" << std::setfill('0')
+  //           << std::setw(4) << static_cast<int>(bc.get())
+  //           << " DE:" << std::setfill('0') << std::setw(4)
+  //           << static_cast<int>(de.get()) << " HL:" << std::setfill('0')
+  //           << std::setw(4) << static_cast<int>(hl.get())
+  //           << " SP:" << std::setfill('0') << std::setw(4)
+  //           << static_cast<int>(sp.get()) << '\n';
   pc.set(pc.get() + 1);
   if (opcode == 0xCB) {
     return execute_cb();

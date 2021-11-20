@@ -1,5 +1,7 @@
 #include "mbc/mbc1.h"
 
+#include <iostream>
+
 uint8_t Mbc1::readRomLo(uint16_t addr) {
   // TODO: It should behave like this on "Large ROM" cartridges:
   // size_t bank = bank_mode ? ram_bank_or_rom_bank_hi << 5 : 0;
@@ -8,15 +10,14 @@ uint8_t Mbc1::readRomLo(uint16_t addr) {
 }
 
 uint8_t Mbc1::readRomHi(uint16_t addr) {
-  uint16_t bank =
-      static_cast<uint16_t>(ram_bank_or_rom_bank_hi << 5) | rom_bank_lo;
-  return rom[(bank * 0x4000) + addr];
+  size_t bank = static_cast<size_t>(ram_bank_or_rom_bank_hi << 5) | rom_bank_lo;
+  return rom[((bank * 0x4000) + addr) % rom.size()];
 }
 
 uint8_t Mbc1::readRam(uint16_t addr) {
-  if (!ram_enabled) return 0;
+  if (!ram_enabled) return 0xFF;
   size_t bank = bank_mode ? ram_bank_or_rom_bank_hi : 0;
-  return ram[(bank * 0x2000) + addr];
+  return ram[((bank * 0x2000) + addr) % ram.size()];
 }
 
 void Mbc1::writeRomLo(uint16_t addr, uint8_t data) {
@@ -24,7 +25,7 @@ void Mbc1::writeRomLo(uint16_t addr, uint8_t data) {
     ram_enabled = (data & 0xF) == 0xA;
   } else {
     rom_bank_lo = data & 0x1F;
-    if (rom_bank_lo % 0x10 == 0) rom_bank_lo |= 1;
+    if (rom_bank_lo == 0) rom_bank_lo |= 1;
   }
 }
 
@@ -39,5 +40,5 @@ void Mbc1::writeRomHi(uint16_t addr, uint8_t data) {
 void Mbc1::writeRam(uint16_t addr, uint8_t data) {
   if (!ram_enabled) return;
   size_t bank = bank_mode ? ram_bank_or_rom_bank_hi : 0;
-  ram[(bank * 0x2000) + addr] = data;
+  ram[((bank * 0x2000) + addr) % ram.size()] = data;
 }
