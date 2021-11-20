@@ -21,8 +21,7 @@ class Mbc1 : public Mbc {
         bank_mode() {
     if (type == 0x03) {
       ram.reserve(ram_size);
-      savefile_opt =
-          std::string(filename.substr(0, filename.find_last_of('.'))) + ".sav";
+      savefile_opt = this->saveFileName(filename);
       restoreSaveFile();
     } else {
       savefile_opt = std::nullopt;

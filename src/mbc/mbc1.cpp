@@ -1,5 +1,6 @@
 #include "mbc/mbc1.h"
 
+#include <algorithm>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
@@ -51,13 +52,17 @@ void Mbc1::restoreSaveFile() {
   std::ifstream file_in;
   file_in.open(*savefile_opt, std::fstream::in | std::fstream::binary);
 
-  if (!file_in) {
-    ram.resize(ram.capacity(), 0);
-    return;
+  if (file_in) {
+    file_in.seekg(0, std::ios::end);
+    std::streampos filesize = file_in.tellg();
+    file_in.seekg(0);
+
+    std::copy_n(std::istreambuf_iterator<char>(file_in),
+                std::min(static_cast<size_t>(filesize), ram.capacity()),
+                std::back_inserter(ram));
   }
 
-  std::copy(std::istreambuf_iterator<char>(file_in),
-            std::istreambuf_iterator<char>(), std::back_inserter(ram));
+  ram.resize(ram.capacity(), 0);
 }
 
 void Mbc1::writeSaveFile() {
@@ -66,7 +71,7 @@ void Mbc1::writeSaveFile() {
   std::ofstream out;
   out.open(*savefile_opt, std::fstream::out | std::fstream::binary);
 
-  std::ostream_iterator<uint8_t> out_it(out);
+  std::ostreambuf_iterator<char> out_it(out);
   std::copy(ram.begin(), ram.end(), out_it);
 
   out.close();

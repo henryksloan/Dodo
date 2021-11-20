@@ -2,6 +2,8 @@
 #define DODO_MBC_H_
 
 #include <cstdint>
+#include <string>
+#include <string_view>
 
 // An abstract "Memory Bus Controller" - dispatches accesses to cartridge memory
 class Mbc {
@@ -27,6 +29,11 @@ class Mbc {
     } else if (addr >= 0xA000 && addr < 0xC000) {
       writeRam(addr - 0xA000, data);
     }
+  }
+
+ protected:
+  static std::string saveFileName(std::string_view filename) {
+    return std::string(filename.substr(0, filename.find_last_of('.'))) + ".sav";
   }
 
  private:
