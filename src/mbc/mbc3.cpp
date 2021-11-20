@@ -60,7 +60,7 @@ void Mbc3::writeRam(uint16_t addr, uint8_t data) {
   if (ram_bank_or_rtc_reg < 0x04) {
     ram[(static_cast<size_t>(ram_bank_or_rtc_reg) * 0x2000) + addr] = data;
   } else if (ram_bank_or_rtc_reg >= 0x08) {
-    rtc[data - 0x08] = data;
+    rtc[ram_bank_or_rtc_reg - 0x08] = data;
     computeRtcBase();
   }
 }
