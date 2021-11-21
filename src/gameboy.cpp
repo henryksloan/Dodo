@@ -79,7 +79,7 @@ std::variant<std::unique_ptr<Mbc>, std::string> Gameboy::makeMbc(
     case 0x1C:
     case 0x1D:
     case 0x1E:
-      return std::make_unique<Mbc5>(data, ram_size);
+      return std::make_unique<Mbc5>(filename, type, data, ram_size);
       break;
     case 0x05:
     case 0x06:

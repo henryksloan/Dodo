@@ -82,7 +82,7 @@ void Mbc3::computeRtcBase() {
 }
 
 // http://justsolve.archiveteam.org/wiki/GB#MBC3_RTC_save_format
-// TODO: Restoring doesn't work, and saving is wrong... but it's a start
+// TODO: Restoring RTC doesn't work, and saving RTC is wrong... but it's a start
 void Mbc3::restoreSaveFile(const bool restore_ram, const bool try_restore_rtc) {
   if (!savefile_opt) return;
 
