@@ -14,6 +14,8 @@ bool Bus::tick(int cpu_tcycles) {
   auto ppu_interrupts = ppu.tick(ppu_ticks);
   int_request |= ppu_interrupts;
 
+  // TODO: Keypad and serial interrupts
+
   // TODO: Tick other devices
 
   return ((ppu_interrupts >> kIntOffVBlank) & 1) == 1;
@@ -184,19 +186,20 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
     static const uint8_t mask[4] = {0xFF, 0xF0, 0x1F, 0xF0};
     hdma_src_dst[addr - 0xFF51] = data & mask[addr - 0xFF51];
   } else if (addr == 0xFF55) {
+    bool bit_7 = data >> 7;
+    if (hdma_mode == HdmaMode::kHdmaHBlank) {
+      // Writing zero to bit 7 can cancel a transfer
+      if (bit_7) hdma_mode = HdmaMode::kHdmaNone;
+      return;
+    }
+
     hdma_len = data & ~(1 << 7);
     hdma_src = static_cast<uint16_t>(hdma_src_dst[0] << 8) | hdma_src_dst[1];
     hdma_dst = 0x8000 | static_cast<uint16_t>((hdma_src_dst[2]) << 8) |
                hdma_src_dst[3];
     // TODO: Validate source
 
-    bool bit_7 = data >> 7;
-    if (hdma_mode != HdmaMode::kHdmaNone && !bit_7) {
-      // Writing zero to bit 7 can cancel a transfer
-      hdma_mode = HdmaMode::kHdmaNone;
-    } else {
-      hdma_mode = bit_7 ? HdmaMode::kHdmaHBlank : HdmaMode::kHdmaGeneral;
-    }
+    hdma_mode = bit_7 ? HdmaMode::kHdmaHBlank : HdmaMode::kHdmaGeneral;
   } else if (addr >= 0xFF68 && addr <= 0xFF6B) {
     ppu.write(addr, data);
   } else if (addr == 0xFF70) {
@@ -220,7 +223,8 @@ int Bus::progressDma() {
 int Bus::hdmaTransferLines(int n_lines /* = 1 */) {
   for (int i = 0; i < n_lines; i++) {
     for (int j = 0; j < 0x10; j++) {
-      ppu.writeVram(hdma_dst, this->read(hdma_src));
+      ppu.writeVram(static_cast<uint16_t>(hdma_dst + j),
+                    this->read(static_cast<uint16_t>(hdma_src + j)));
     }
     hdma_src += 0x10;
     hdma_dst += 0x10;
