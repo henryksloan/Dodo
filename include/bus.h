@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <memory>
 
+#include "apu/apu.h"
 #include "mbc/mbc.h"
 #include "ppu.h"
 #include "timer.h"
@@ -73,6 +74,7 @@ class Bus {
   std::unique_ptr<Mbc> mbc;
 
   Ppu ppu;
+  Apu apu;
   Timer timer;
 
   uint8_t int_enable, int_request;  // $FFFF IE and $FF0F IF

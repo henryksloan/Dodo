@@ -17,6 +17,8 @@ set(SOURCES
     src/mbc/mbc1.cpp
     src/mbc/mbc3.cpp
     src/mbc/mbc5.cpp
+    src/apu/apu.cpp
+    src/apu/square_channel.cpp
     src/main.cpp
 )
 

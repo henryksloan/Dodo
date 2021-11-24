@@ -14,9 +14,9 @@ bool Bus::tick(int cpu_tcycles) {
   auto ppu_interrupts = ppu.tick(ppu_ticks);
   int_request |= ppu_interrupts;
 
-  // TODO: Keypad and serial interrupts
+  apu.tick(ppu_ticks);
 
-  // TODO: Tick other devices
+  // TODO: Keypad and serial interrupts
 
   return ((ppu_interrupts >> kIntOffVBlank) & 1) == 1;
 }
@@ -130,7 +130,7 @@ uint8_t Bus::ioRead(uint16_t addr) {
   } else if (addr == 0xFF0F) {
     return int_request;
   } else if (addr >= 0xFF10 && addr <= 0xFF26) {
-    // TODO: Sound
+    return apu.read(addr);
   } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
     // TODO :Waveform RAM
   } else if (addr >= 0xFF40 && addr <= 0xFF4B) {
@@ -168,7 +168,7 @@ void Bus::ioWrite(uint16_t addr, uint8_t data) {
   } else if (addr == 0xFF0F) {
     int_request = data;
   } else if (addr >= 0xFF10 && addr <= 0xFF26) {
-    // TODO: Sound
+    apu.write(addr, data);
   } else if (addr >= 0xFF30 && addr <= 0xFF3F) {
     // TODO :Waveform RAM
   } else if (addr == 0xFF46) {
