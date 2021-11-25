@@ -31,6 +31,14 @@ void Apu::tick(int ticks) {
 
     frame_seq_step = (frame_seq_step + 1) % 8;
   }
+
+  sample_divider += ticks;
+  while (sample_divider >= kSampleDividerPeriod) {
+    sample_divider -= kSampleDividerPeriod;
+    // auto x = square1.getVolume() / 15.0f + square2.getVolume() / 15.0f;
+    auto x = square2.getVolume() / 15.0f;
+    sample_buffer.push_back(x);
+  }
 }
 
 uint8_t Apu::read(uint16_t /* addr */) {

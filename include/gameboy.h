@@ -42,6 +42,8 @@ class Gameboy {
     return bus->getFrame();
   }
 
+  std::vector<float> takeAudioBuffer() { return bus->takeAudioBuffer(); }
+
  private:
   // cpu receives a copy of the bus handle, so initialization order matters here
   const std::shared_ptr<Bus> bus;

@@ -66,6 +66,8 @@ class Bus {
     return ppu.getFrame();
   }
 
+  std::vector<float> takeAudioBuffer() { return apu.takeAudioBuffer(); }
+
  private:
   std::array<uint8_t, kWramSize> wram;
   std::array<uint8_t, kHramSize> hram;

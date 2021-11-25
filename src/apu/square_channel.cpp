@@ -12,6 +12,8 @@ void SquareChannel::tickTimer() {
   if (timer == 0) {
     timer = frequency;
     duty_index = (duty_index + 1) % 8;
+  } else {
+    timer--;
   }
 }
 
@@ -60,12 +62,12 @@ void SquareChannel::write_envelope(uint8_t data) {
 
 void SquareChannel::write_freq_lo(uint8_t data) {
   frequency &= 0x700;
-  frequency |= data;
+  frequency |= ~data;
 }
 
 void SquareChannel::write_trig_freq_hi(uint8_t data) {
   frequency &= 0xFF;
-  frequency |= data & 0x7;
+  frequency |= ((~data) & 0x7) << 8;
   length_enable = (data >> 6) & 1;
   if (data >> 7) {
     trigger();

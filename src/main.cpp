@@ -3,6 +3,7 @@
 #include <string>
 
 #include "SDL.h"
+#include "SDL_audio.h"
 #include "gameboy.h"
 
 int main(int argc, char **argv) {
@@ -19,7 +20,7 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  SDL_Init(SDL_INIT_VIDEO);
+  SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
 
   SDL_Window *window = SDL_CreateWindow("Dodo", SDL_WINDOWPOS_UNDEFINED,
                                         SDL_WINDOWPOS_UNDEFINED, 640, 480, 0);
@@ -32,6 +33,29 @@ int main(int argc, char **argv) {
 
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555,
                                            SDL_TEXTUREACCESS_TARGET, 160, 144);
+
+  // const auto audio_callback = [&](void *, Uint8 *stream, int len) {
+  //   gameboy.fillAudioBuffer(stream, len);
+  // };
+
+  SDL_AudioSpec fmt, fmt_real;
+
+  fmt.freq = 44100;
+  fmt.format = AUDIO_F32;
+  fmt.channels = 1;  // TODO: Stereo
+  fmt.samples = 512;
+  fmt.callback = NULL;  // audio_callback;
+  fmt.userdata = NULL;
+
+  SDL_AudioDeviceID audio_dev_id;
+  if ((audio_dev_id = SDL_OpenAudioDevice(nullptr, 0, &fmt, &fmt_real,
+                                          SDL_AUDIO_ALLOW_ANY_CHANGE)) <= 0) {
+    fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
+    exit(-1);
+  }
+
+  /* Start playing, "unpause" */
+  SDL_PauseAudioDevice(audio_dev_id, 0);
 
   SDL_Event event;
   while (true) {
@@ -48,6 +72,12 @@ int main(int argc, char **argv) {
 
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT) break;
+
+    {
+      auto audio_buff = gameboy.takeAudioBuffer();
+      SDL_QueueAudio(audio_dev_id, audio_buff.data(),
+                     static_cast<Uint32>(audio_buff.size() * sizeof(float)));
+    }
 
     const Uint8 *key_state = SDL_GetKeyboardState(NULL);
     uint8_t action_keys =
