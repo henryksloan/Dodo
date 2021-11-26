@@ -34,16 +34,12 @@ int main(int argc, char **argv) {
   SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_BGR555,
                                            SDL_TEXTUREACCESS_TARGET, 160, 144);
 
-  // const auto audio_callback = [&](void *, Uint8 *stream, int len) {
-  //   gameboy.fillAudioBuffer(stream, len);
-  // };
-
   SDL_AudioSpec fmt, fmt_real;
 
-  fmt.freq = 44100;
+  fmt.freq = kSampleRate;
   fmt.format = AUDIO_F32;
-  fmt.channels = 1;  // TODO: Stereo
-  fmt.samples = 512;
+  fmt.channels = 1;     // TODO: Stereo
+  fmt.samples = 0;      // 1600;   // 4096;   // 512;
   fmt.callback = NULL;  // audio_callback;
   fmt.userdata = NULL;
 
@@ -74,7 +70,10 @@ int main(int argc, char **argv) {
     if (event.type == SDL_QUIT) break;
 
     {
+      // SDL_ClearQueuedAudio(audio_dev_id);
       auto audio_buff = gameboy.takeAudioBuffer();
+      // std::cout << audio_buff.size() << ' '
+      //           << SDL_GetQueuedAudioSize(audio_dev_id) << '\n';
       SDL_QueueAudio(audio_dev_id, audio_buff.data(),
                      static_cast<Uint32>(audio_buff.size() * sizeof(float)));
     }

@@ -9,15 +9,15 @@ const uint8_t kTimerDividerPeriod = 8;  // 32;
 const uint16_t kFrameDividerPeriod = 512;
 
 const int kCpuClockRate = 4194304;
-const int kSampleRate = 44100;
+const int kSampleRate = 44100;  // 96000
 const int kSampleDividerPeriod = kCpuClockRate / kSampleRate;
 
 // https://gbdev.gg8.se/wiki/articles/Gameboy_sound_hardware
 class Apu {
  public:
   Apu()
-      : square1{},
-        square2{},
+      : square1(true),
+        square2(false),
         timer_divider{},
         frame_divider{},
         frame_seq_step{} {}
