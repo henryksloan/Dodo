@@ -30,11 +30,11 @@ class SquareChannel {
 
   uint8_t getVolume();
 
-  void write_sweep(uint8_t data);         // NRx0 (square1)
-  void write_duty_length(uint8_t data);   // NRx1
-  void write_envelope(uint8_t data);      // NRx2
-  void write_freq_lo(uint8_t data);       // NRx3
-  void write_trig_freq_hi(uint8_t data);  // NRx4
+  void writeSweep(uint8_t data);       // NRx0 (square1)
+  void writeDutyLength(uint8_t data);  // NRx1
+  void writeEnvelope(uint8_t data);    // NRx2
+  void writeFreqLo(uint8_t data);      // NRx3
+  void writeTrigFreqHi(uint8_t data);  // NRx4
 
  private:
   const bool has_sweep;

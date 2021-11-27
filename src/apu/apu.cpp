@@ -1,5 +1,7 @@
 #include "apu/apu.h"
 
+#include <iostream>
+
 void Apu::tick(int ticks) {
   timer_divider += ticks;
   while (timer_divider >= kTimerDividerPeriod) {
@@ -33,12 +35,19 @@ void Apu::tick(int ticks) {
   }
 
   sample_divider += ticks;
+  // std::cout << 'a' << sample_divider << '\n';
   while (sample_divider >= kSampleDividerPeriod) {
     sample_divider -= kSampleDividerPeriod;
     // auto x = square1.getVolume() / 15.0f + square2.getVolume() / 15.0f;
-    auto x = square2.getVolume() / 15.0f;
+    // auto x = square2.getVolume() / 15.0f;
+    // auto x = (square2.getVolume() / 7.5f) - 1.0f;
     // auto x = square1.getVolume() / 15.0f;
+
+    auto x = (((square1.getVolume() / 7.5f) - 1.0f) +
+              ((square2.getVolume() / 7.5f) - 1.0f)) /
+             2.0f;
     sample_buffer.push_back(x);
+    // std::cout << 'b' << sample_buffer.size() << '\n';
   }
 }
 
@@ -50,32 +59,32 @@ uint8_t Apu::read(uint16_t /* addr */) {
 void Apu::write(uint16_t addr, uint8_t data) {
   switch (addr) {
     case 0xFF10:
-      square1.write_sweep(data);
+      square1.writeSweep(data);
       break;
     case 0xFF11:
-      square1.write_duty_length(data);
+      square1.writeDutyLength(data);
       break;
     case 0xFF12:
-      square1.write_envelope(data);
+      square1.writeEnvelope(data);
       break;
     case 0xFF13:
-      square1.write_freq_lo(data);
+      square1.writeFreqLo(data);
       break;
     case 0xFF14:
-      square1.write_trig_freq_hi(data);
+      square1.writeTrigFreqHi(data);
       break;
 
     case 0xFF16:
-      square2.write_duty_length(data);
+      square2.writeDutyLength(data);
       break;
     case 0xFF17:
-      square2.write_envelope(data);
+      square2.writeEnvelope(data);
       break;
     case 0xFF18:
-      square2.write_freq_lo(data);
+      square2.writeFreqLo(data);
       break;
     case 0xFF19:
-      square2.write_trig_freq_hi(data);
+      square2.writeTrigFreqHi(data);
       break;
 
     // TODO: Wave

@@ -38,9 +38,9 @@ int main(int argc, char **argv) {
 
   fmt.freq = kSampleRate;
   fmt.format = AUDIO_F32;
-  fmt.channels = 1;     // TODO: Stereo
-  fmt.samples = 0;      // 1600;   // 4096;   // 512;
-  fmt.callback = NULL;  // audio_callback;
+  fmt.channels = 1;  // TODO: Stereo
+  fmt.samples = 0;   // Automatic
+  fmt.callback = NULL;
   fmt.userdata = NULL;
 
   SDL_AudioDeviceID audio_dev_id;
@@ -74,6 +74,8 @@ int main(int argc, char **argv) {
       auto audio_buff = gameboy.takeAudioBuffer();
       // std::cout << audio_buff.size() << ' '
       //           << SDL_GetQueuedAudioSize(audio_dev_id) << '\n';
+      while (SDL_GetQueuedAudioSize(audio_dev_id) > (4096) * 4) {
+      }
       SDL_QueueAudio(audio_dev_id, audio_buff.data(),
                      static_cast<Uint32>(audio_buff.size() * sizeof(float)));
     }

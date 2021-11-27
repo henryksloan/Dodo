@@ -55,18 +55,18 @@ uint8_t SquareChannel::getVolume() {
   return envelope.volume * duty_bit;
 }
 
-void SquareChannel::write_sweep(uint8_t data) {
+void SquareChannel::writeSweep(uint8_t data) {
   sweep.shift = data & 0x7;
   sweep.sweep_down = (data >> 3) & 1;
   sweep.period = (data >> 4) & 0x7;
 }
 
-void SquareChannel::write_duty_length(uint8_t data) {
+void SquareChannel::writeDutyLength(uint8_t data) {
   length = ((~data) & 0x3F) + 1;
   duty_pattern = kDutyPatterns[data >> 6];
 }
 
-void SquareChannel::write_envelope(uint8_t data) {
+void SquareChannel::writeEnvelope(uint8_t data) {
   envelope.volume_reload = data >> 4;
   envelope.sweep_up = (data >> 3) & 1;
   envelope.period = data & 0x7;
@@ -81,12 +81,12 @@ void SquareChannel::write_envelope(uint8_t data) {
   }
 }
 
-void SquareChannel::write_freq_lo(uint8_t data) {
+void SquareChannel::writeFreqLo(uint8_t data) {
   frequency &= 0x700;
   frequency |= ~data;
 }
 
-void SquareChannel::write_trig_freq_hi(uint8_t data) {
+void SquareChannel::writeTrigFreqHi(uint8_t data) {
   frequency &= 0xFF;
   frequency |= ((~data) & 0x7) << 8;
   length_enable = (data >> 6) & 1;
@@ -99,6 +99,7 @@ void SquareChannel::trigger() {
   enable = dac_enable;
   if (length == 0) length = 64;
   timer = frequency;
+  envelope.enable = true;
   envelope.timer = envelope.period;
   envelope.volume = envelope.volume_reload;
 

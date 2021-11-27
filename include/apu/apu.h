@@ -20,7 +20,8 @@ class Apu {
         square2(false),
         timer_divider{},
         frame_divider{},
-        frame_seq_step{} {}
+        frame_seq_step{},
+        sample_divider{} {}
 
   void tick(int ticks);
 
